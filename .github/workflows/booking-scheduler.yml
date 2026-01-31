@@ -167,17 +167,37 @@ jobs:
       - name: Check if this job should run
         id: check
         run: |
-          # Get current cron expression that triggered this
-          CURRENT_CRON="${{ github.event.schedule }}"
+          # Get current day of week (0=Sunday, 1=Monday, ..., 6=Saturday)
+          CURRENT_DAY=$(date +%w)
           MATRIX_CRON="${{ matrix.cron_match }}"
-
-          if [ "$CURRENT_CRON" = "$MATRIX_CRON" ]; then
+          
+          echo "Current day of week: $CURRENT_DAY"
+          echo "Matrix cron: $MATRIX_CRON"
+          
+          # Map day numbers to cron day numbers
+          case $CURRENT_DAY in
+            0) CRON_DAY="0" ;; # Sunday
+            1) CRON_DAY="1" ;; # Monday  
+            2) CRON_DAY="2" ;; # Tuesday
+            3) CRON_DAY="3" ;; # Wednesday
+            4) CRON_DAY="4" ;; # Thursday
+            5) CRON_DAY="5" ;; # Friday
+            6) CRON_DAY="6" ;; # Saturday
+          esac
+          
+          # Extract day from cron expression (last field)
+          CRON_SCHEDULED_DAY=$(echo "$MATRIX_CRON" | awk '{print $NF}')
+          
+          echo "Cron scheduled day: $CRON_SCHEDULED_DAY"
+          
+          if [ "$CRON_SCHEDULED_DAY" = "$CRON_DAY" ]; then
             echo "should_run=true" >> $GITHUB_OUTPUT
-            echo "✅ This job matches the schedule: $CURRENT_CRON"
+            echo "✅ This job matches today (day $CURRENT_DAY)"
           else
             echo "should_run=false" >> $GITHUB_OUTPUT
-            echo "⏭️ Skipping - schedule $CURRENT_CRON doesn't match $MATRIX_CRON"
+            echo "⏭️ Skipping - today is day $CURRENT_DAY, job is for day $CRON_SCHEDULED_DAY"
           fi
+          
 
       - name: Checkout code
         if: steps.check.outputs.should_run == 'true'

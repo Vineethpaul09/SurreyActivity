@@ -91,8 +91,13 @@ jobs:
         env:
           DISPLAY: ":99"
         run: |
+          echo "Starting Xvfb..."
           Xvfb :99 -screen 0 1920x1080x24 &
           sleep 3
+          echo "Xvfb started, checking display..."
+          echo "DISPLAY=$DISPLAY"
+          ps aux | grep Xvfb || echo "Xvfb not running!"
+          echo "Running booking command..."
           npx ts-node src/cli.ts book \
             -a "${{ inputs.activity }}" \
             -d "${{ inputs.date }}" \
@@ -243,13 +248,13 @@ jobs:
         env:
           DISPLAY: ":99"
         run: |
+          echo "Starting Xvfb..."
           Xvfb :99 -screen 0 1920x1080x24 &
           sleep 3
-
-          BOOKINGS='${{ matrix.bookings }}'
-          BOOKING_DATE="${{ steps.date.outputs.booking_date }}"
-
-          echo "🎯 Running bookings for date: $BOOKING_DATE"
+          echo "Xvfb started, checking display..."
+          echo "DISPLAY=$DISPLAY"
+          ps aux | grep Xvfb || echo "Xvfb not running!"
+          echo "Running scheduled bookings..."
           echo "$BOOKINGS" | jq -c '.[]' | while read booking; do
             ACTIVITY=$(echo $booking | jq -r '.activity')
             TIME=$(echo $booking | jq -r '.time')

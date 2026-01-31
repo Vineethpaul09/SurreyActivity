@@ -1,0 +1,88 @@
+{
+  "schedules": [
+    {
+      "id": "wednesday-saturday-cloverdale-pickleball",
+      "activity": "Drop In Pickleball - Adult",
+      "description": "Wednesday 9:00 AM → Book Saturday Pickleball @ Cloverdale",
+      "cronDay": "Wednesday",
+      "cronTime": "08:58",
+      "cronExpression": "58 8 * * 3",
+      "bookForDay": "Saturday",
+      "location": "Cloverdale Recreation Centre",
+      "timeSlot": "9:00 am",
+      "enabled": true
+    },
+    {
+      "id": "friday-monday-cloverdale",
+      "activity": "Drop In Badminton - Adult",
+      "description": "Friday 6:13 PM → Book Monday @ Cloverdale",
+      "cronDay": "Friday",
+      "cronTime": "18:13",
+      "cronExpression": "13 18 * * 5",
+      "bookForDay": "Monday",
+      "location": "Cloverdale Recreation Centre",
+      "timeSlot": "06:00 pm",
+      "enabled": true
+    },
+    {
+      "id": "saturday-tuesday-guildford",
+      "activity": "Drop In Badminton - Adult",
+      "description": "Saturday 6:28 PM → Book Tuesday @ Guildford",
+      "cronDay": "Saturday",
+      "cronTime": "18:28",
+      "cronExpression": "28 18 * * 6",
+      "bookForDay": "Tuesday",
+      "location": "Guildford Recreation Centre",
+      "timeSlot": "06:00 pm",
+      "enabled": true
+    },
+    {
+      "id": "sunday-wednesday-fraser",
+      "activity": "Drop In Badminton - Adult",
+      "description": "Sunday 6:13 PM → Book Wednesday @ Fraser Heights",
+      "cronDay": "Sunday",
+      "cronTime": "18:13",
+      "cronExpression": "13 18 * * 0",
+      "bookForDay": "Wednesday",
+      "location": "Fraser Heights Recreation Centre",
+      "timeSlot": "06:00 pm",
+      "enabled": true
+    },
+    {
+      "id": "monday-thursday-guildford",
+      "activity": "Drop In Badminton - Adult",
+      "description": "Monday 6:58 PM → Book Thursday @ Guildford",
+      "cronDay": "Monday",
+      "cronTime": "18:58",
+      "cronExpression": "58 18 * * 1",
+      "bookForDay": "Thursday",
+      "location": "Guildford Recreation Centre",
+      "timeSlot": "06:00 pm",
+      "enabled": true
+    },
+    {
+      "id": "wednesday-saturday-fraser",
+      "activity": "Drop In Badminton - Adult",
+      "description": "Wednesday 9:58 AM → Book Saturday @ Fraser Heights",
+      "cronDay": "Wednesday",
+      "cronTime": "09:58",
+      "cronExpression": "58 9 * * 3",
+      "bookForDay": "Saturday",
+      "location": "Fraser Heights Recreation Centre",
+      "timeSlot": "10:00 am",
+      "enabled": true
+    },
+    {
+      "id": "thursday-sunday-fraser",
+      "activity": "Drop In Badminton - Adult",
+      "description": "Thursday 9:58 AM → Book Sunday @ Fraser Heights",
+      "cronDay": "Thursday",
+      "cronTime": "09:58",
+      "cronExpression": "58 9 * * 4",
+      "bookForDay": "Sunday",
+      "location": "Fraser Heights Recreation Centre",
+      "timeSlot": "10:00 am",
+      "enabled": true
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "description": "Configuration for automated Surrey activity bookings",
+  "bookings": [
+    {
+      "id": "saturday-morning-basketball",
+      "enabled": true,
+      "activity": "Drop In Basketball - Adult",
+      "date": "31-Jan-2026",
+      "time": "08:15 am",
+      "location": "Guildford Recreation Centre",
+      "preferWaitlist": true
+    },
+    {
+      "id": "monday-evening-basketball",
+      "enabled": true,
+      "activity": "Drop In Basketball - Adult",
+      "date": "02-Feb-2026",
+      "time": "08:15 pm",
+      "location": "Cloverdale Recreation Centre",
+      "preferWaitlist": true
+    }
+  ],
+  "settings": {
+    "feePreference": "Rec Surrey Pass",
+    "maxRetries": 3,
+    "retryDelayMs": 5000,
+    "screenshotOnError": true,
+    "screenshotDir": "./screenshots"
+  }
+}

@@ -1,0 +1,8 @@
+[build]
+builder = "dockerfile"
+
+[deploy]
+startCommand = "npx ts-node src/scheduler.ts start"
+healthcheckPath = "/"
+healthcheckTimeout = 300
+restartPolicyType = "always"

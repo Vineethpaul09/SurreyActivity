@@ -72,7 +72,7 @@ export class SurreyBookingAutomation {
     try {
       // Navigate to booking page
       await this.page.goto(BOOKING_URL, { waitUntil: "networkidle" });
-      await this.page.waitForTimeout(3000);
+      await this.page.waitForTimeout(1000);
 
       // Check if already logged in by looking for user menu
       const userMenu = await this.page.$("text=Paul Vineeth");
@@ -206,7 +206,7 @@ export class SurreyBookingAutomation {
     try {
       // Navigate to booking page
       await this.page.goto(BOOKING_URL, { waitUntil: "networkidle" });
-      await this.page.waitForTimeout(2000);
+      await this.page.waitForTimeout(1000);
 
       // Set service/activity filter FIRST (narrows down results)
       if (params.activity) {
@@ -215,21 +215,21 @@ export class SurreyBookingAutomation {
       }
 
       // Wait for filter to apply
-      await this.page.waitForTimeout(2000);
+      await this.page.waitForTimeout(1000);
 
       // Set date filter to specific date (both from and to = same date)
       logStep(2.2, `Setting date filter to: ${params.date}`);
       await this.setDateFilter(params.date);
 
       // Wait for filtered results to load - events will appear automatically
-      await this.page.waitForTimeout(3000);
+      await this.page.waitForTimeout(1000);
 
       // Verify events loaded after filters
       try {
         await this.page.waitForSelector(
           'button:has-text("Register"), button:has-text("Waitlist"), button:has-text("More Info")',
           {
-            timeout: 10000,
+            timeout: 2000,
           },
         );
         log.info("Filtered events loaded successfully");

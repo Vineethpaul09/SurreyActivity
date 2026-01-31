@@ -85,7 +85,7 @@ jobs:
           echo "HEADLESS=false" >> .env
 
       - name: Install Xvfb
-        run: sudo apt-get install -y xvfb
+        run: sudo apt-get install -y xvfb jq
 
       - name: Run booking with Xvfb (virtual display)
         env:
@@ -207,7 +207,7 @@ jobs:
 
       - name: Install Xvfb
         if: steps.check.outputs.should_run == 'true'
-        run: sudo apt-get install -y xvfb
+        run: sudo apt-get install -y xvfb jq
 
       - name: Calculate booking date
         if: steps.check.outputs.should_run == 'true'

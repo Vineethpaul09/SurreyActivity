@@ -55,16 +55,21 @@ jobs:
           echo "SURREY_PASSWORD=${{ secrets.SURREY_PASSWORD }}" >> .env
           echo "HEADLESS=false" >> .env
 
+      - name: Install Xvfb
+        run: sudo apt-get install -y xvfb
+
       - name: Test booking with Xvfb (TEST ONLY - no actual booking)
-        uses: coactions/setup-xvfb@v1
-        with:
-          run: |
-            npx ts-node src/cli.ts book \
-              -a "${{ inputs.activity }}" \
-              -d "${{ inputs.date }}" \
-              -t "${{ inputs.time }}" \
-              -l "${{ inputs.location }}" \
-              --test-only
+        env:
+          DISPLAY: ':99'
+        run: |
+          Xvfb :99 -screen 0 1920x1080x24 &
+          sleep 3
+          npx ts-node src/cli.ts book \
+            -a "${{ inputs.activity }}" \
+            -d "${{ inputs.date }}" \
+            -t "${{ inputs.time }}" \
+            -l "${{ inputs.location }}" \
+            --test-only
 
       - name: Upload screenshots
         if: always()

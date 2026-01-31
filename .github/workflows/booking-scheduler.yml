@@ -84,16 +84,21 @@ jobs:
           echo "SURREY_PASSWORD=${{ secrets.SURREY_PASSWORD }}" >> .env
           echo "HEADLESS=false" >> .env
 
+      - name: Install Xvfb
+        run: sudo apt-get install -y xvfb
+
       - name: Run booking with Xvfb (virtual display)
-        uses: coactions/setup-xvfb@v1
-        with:
-          run: |
-            npx ts-node src/cli.ts book \
-              -a "${{ inputs.activity }}" \
-              -d "${{ inputs.date }}" \
-              -t "${{ inputs.time }}" \
-              -l "${{ inputs.location }}" \
-              ${{ inputs.test_only && '--test-only' || '' }}
+        env:
+          DISPLAY: ':99'
+        run: |
+          Xvfb :99 -screen 0 1920x1080x24 &
+          sleep 3
+          npx ts-node src/cli.ts book \
+            -a "${{ inputs.activity }}" \
+            -d "${{ inputs.date }}" \
+            -t "${{ inputs.time }}" \
+            -l "${{ inputs.location }}" \
+            ${{ inputs.test_only && '--test-only' || '' }}
 
       - name: Upload screenshots on failure
         if: failure()
@@ -200,6 +205,10 @@ jobs:
           echo "SURREY_PASSWORD=${{ secrets.SURREY_PASSWORD }}" >> .env
           echo "HEADLESS=false" >> .env
 
+      - name: Install Xvfb
+        if: steps.check.outputs.should_run == 'true'
+        run: sudo apt-get install -y xvfb
+
       - name: Calculate booking date
         if: steps.check.outputs.should_run == 'true'
         id: date
@@ -211,31 +220,34 @@ jobs:
 
       - name: Run scheduled bookings with Xvfb
         if: steps.check.outputs.should_run == 'true'
-        uses: coactions/setup-xvfb@v1
-        with:
-          run: |
-            BOOKINGS='${{ matrix.bookings }}'
-            BOOKING_DATE="${{ steps.date.outputs.booking_date }}"
+        env:
+          DISPLAY: ':99'
+        run: |
+          Xvfb :99 -screen 0 1920x1080x24 &
+          sleep 3
+          
+          BOOKINGS='${{ matrix.bookings }}'
+          BOOKING_DATE="${{ steps.date.outputs.booking_date }}"
 
-            echo "🎯 Running bookings for date: $BOOKING_DATE"
-            echo "$BOOKINGS" | jq -c '.[]' | while read booking; do
-              ACTIVITY=$(echo $booking | jq -r '.activity')
-              TIME=$(echo $booking | jq -r '.time')
-              LOCATION=$(echo $booking | jq -r '.location')
-              
-              echo "═══════════════════════════════════════════════════════"
-              echo "📍 Booking: $ACTIVITY at $TIME - $LOCATION"
-              echo "═══════════════════════════════════════════════════════"
-              
-              npx ts-node src/cli.ts book \
-                -a "$ACTIVITY" \
-                -d "$BOOKING_DATE" \
-                -t "$TIME" \
-                -l "$LOCATION" || true
-              
-              # Small delay between bookings
-              sleep 5
-            done
+          echo "🎯 Running bookings for date: $BOOKING_DATE"
+          echo "$BOOKINGS" | jq -c '.[]' | while read booking; do
+            ACTIVITY=$(echo $booking | jq -r '.activity')
+            TIME=$(echo $booking | jq -r '.time')
+            LOCATION=$(echo $booking | jq -r '.location')
+            
+            echo "═══════════════════════════════════════════════════════"
+            echo "📍 Booking: $ACTIVITY at $TIME - $LOCATION"
+            echo "═══════════════════════════════════════════════════════"
+            
+            npx ts-node src/cli.ts book \
+              -a "$ACTIVITY" \
+              -d "$BOOKING_DATE" \
+              -t "$TIME" \
+              -l "$LOCATION" || true
+            
+            # Small delay between bookings
+            sleep 5
+          done
 
       - name: Upload screenshots
         if: steps.check.outputs.should_run == 'true' && always()

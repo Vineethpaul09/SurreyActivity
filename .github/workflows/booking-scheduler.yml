@@ -89,7 +89,7 @@ jobs:
 
       - name: Run booking with Xvfb (virtual display)
         env:
-          DISPLAY: ':99'
+          DISPLAY: ":99"
         run: |
           Xvfb :99 -screen 0 1920x1080x24 &
           sleep 3
@@ -221,11 +221,11 @@ jobs:
       - name: Run scheduled bookings with Xvfb
         if: steps.check.outputs.should_run == 'true'
         env:
-          DISPLAY: ':99'
+          DISPLAY: ":99"
         run: |
           Xvfb :99 -screen 0 1920x1080x24 &
           sleep 3
-          
+
           BOOKINGS='${{ matrix.bookings }}'
           BOOKING_DATE="${{ steps.date.outputs.booking_date }}"
 

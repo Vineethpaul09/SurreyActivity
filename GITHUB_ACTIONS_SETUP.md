@@ -5,6 +5,7 @@ This guide explains how to set up the Surrey Booking Automation to run on GitHub
 ## Why GitHub Actions?
 
 Payment iframes (like Moneris used by Surrey) **block headless browsers**. They use:
+
 - GPU fingerprinting
 - AudioContext analysis
 - Canvas noise detection
@@ -31,9 +32,9 @@ Go to your GitHub repository → **Settings** → **Secrets and variables** → 
 
 Add these secrets:
 
-| Secret Name | Value |
-|-------------|-------|
-| `SURREY_EMAIL` | Your Surrey booking email |
+| Secret Name       | Value                        |
+| ----------------- | ---------------------------- |
+| `SURREY_EMAIL`    | Your Surrey booking email    |
 | `SURREY_PASSWORD` | Your Surrey booking password |
 
 ### 3. Enable GitHub Actions
@@ -71,13 +72,13 @@ Test without completing the booking:
 
 The scheduler runs automatically at these times (PST):
 
-| Day | Time | Bookings Released |
-|-----|------|-------------------|
-| Tuesday | 9:00 AM | Friday slots |
+| Day       | Time    | Bookings Released           |
+| --------- | ------- | --------------------------- |
+| Tuesday   | 9:00 AM | Friday slots                |
 | Wednesday | 9:00 AM | Saturday slots + Pickleball |
-| Thursday | 9:00 AM | Sunday slots |
-| Friday | 9:00 AM | Monday slots |
-| Saturday | 9:00 AM | Tuesday slots |
+| Thursday  | 9:00 AM | Sunday slots                |
+| Friday    | 9:00 AM | Monday slots                |
+| Saturday  | 9:00 AM | Tuesday slots               |
 
 ## Schedule Configuration
 
@@ -88,7 +89,7 @@ The scheduler runs automatically at these times (PST):
 
 # Wednesday 9AM PST → Saturday bookings
 - Badminton 7:15am @ Guildford
-- Badminton 7:15am @ Bear Creek Park  
+- Badminton 7:15am @ Bear Creek Park
 - Pickleball 1:15pm @ Cloverdale
 
 # Thursday 9AM PST → Sunday bookings
@@ -114,6 +115,7 @@ Edit `.github/workflows/booking-scheduler.yml`:
 Cron format: `minute hour day month weekday` (UTC time)
 
 PST to UTC: Add 8 hours (or 7 during DST)
+
 - 9:00 AM PST = 17:00 UTC (5 PM)
 
 ### Adding a New Booking
@@ -121,7 +123,7 @@ PST to UTC: Add 8 hours (or 7 during DST)
 Add to the appropriate `bookings` array in the matrix:
 
 ```yaml
-- cron_match: '0 17 * * 3'  # Wednesday
+- cron_match: "0 17 * * 3" # Wednesday
   bookings: |
     [
       {"activity": "Drop In Badminton - 13+", "time": "07:15 am", "location": "Guildford", "days_ahead": 3},
@@ -169,6 +171,7 @@ To customize: **Settings** → **Notifications**
 ## Cost
 
 GitHub Actions is **free** for public repositories and includes:
+
 - **2,000 minutes/month** for private repos (free tier)
 - Each booking run uses ~3-5 minutes
 
@@ -190,6 +193,7 @@ For more control, you can set up a self-hosted runner on your own machine:
 3. Follow the setup instructions
 
 Benefits:
+
 - No minute limits
 - Faster execution
 - Can use your own display
@@ -206,6 +210,7 @@ Benefits:
 ## Support
 
 If you encounter issues:
+
 1. Check the Actions logs
 2. Review screenshots in Artifacts
 3. Verify the website structure hasn't changed

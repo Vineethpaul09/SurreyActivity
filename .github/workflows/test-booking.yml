@@ -4,35 +4,35 @@ on:
   workflow_dispatch:
     inputs:
       activity:
-        description: 'Activity name'
+        description: "Activity name"
         required: true
-        default: 'Drop In Badminton - 13+'
+        default: "Drop In Badminton - 13+"
         type: string
       date:
-        description: 'Date (DD-MMM-YYYY)'
+        description: "Date (DD-MMM-YYYY)"
         required: true
         type: string
       time:
-        description: 'Time (e.g., 07:15 am)'
+        description: "Time (e.g., 07:15 am)"
         required: true
-        default: '07:15 am'
+        default: "07:15 am"
         type: string
       location:
-        description: 'Location'
+        description: "Location"
         required: true
-        default: 'Guildford'
+        default: "Guildford"
         type: string
 
 env:
   SURREY_EMAIL: ${{ secrets.SURREY_EMAIL }}
   SURREY_PASSWORD: ${{ secrets.SURREY_PASSWORD }}
-  HEADLESS: 'false'
+  HEADLESS: "false"
 
 jobs:
   test-booking:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -40,8 +40,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci

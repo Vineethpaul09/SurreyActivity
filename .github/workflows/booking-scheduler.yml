@@ -21,7 +21,7 @@ on:
         required: true
         type: string
       test_only:
-        description: 'Test only (do not complete booking)'
+        description: "Test only (do not complete booking)"
         required: false
         type: boolean
         default: false
@@ -30,30 +30,30 @@ on:
   # Badminton bookings release at 9:00 AM PST on specific days
   schedule:
     # Saturday Guildford 7:15am - releases Wednesday 9AM PST = 17:00 UTC
-    - cron: '0 17 * * 3'  # Wednesday 5PM UTC = 9AM PST
-    
+    - cron: "0 17 * * 3" # Wednesday 5PM UTC = 9AM PST
+
     # Saturday Bear Creek 7:15am - releases Wednesday 9AM PST
     # (same cron, handled by job matrix)
-    
+
     # Sunday Guildford 6:45am - releases Thursday 9AM PST = 17:00 UTC
-    - cron: '0 17 * * 4'  # Thursday 5PM UTC = 9AM PST
-    
+    - cron: "0 17 * * 4" # Thursday 5PM UTC = 9AM PST
+
     # Monday Guildford 7:15am - releases Friday 9AM PST
-    - cron: '0 17 * * 5'  # Friday 5PM UTC = 9AM PST
-    
+    - cron: "0 17 * * 5" # Friday 5PM UTC = 9AM PST
+
     # Tuesday Guildford 6:45am - releases Saturday 9AM PST
-    - cron: '0 17 * * 6'  # Saturday 5PM UTC = 9AM PST
-    
+    - cron: "0 17 * * 6" # Saturday 5PM UTC = 9AM PST
+
     # Wednesday Cloverdale Pickleball 1:15pm - releases Wednesday 9AM PST
     # (same as first cron)
-    
+
     # Friday Guildford 7:15am - releases Tuesday 9AM PST
-    - cron: '0 17 * * 2'  # Tuesday 5PM UTC = 9AM PST
+    - cron: "0 17 * * 2" # Tuesday 5PM UTC = 9AM PST
 
 env:
   SURREY_EMAIL: ${{ secrets.SURREY_EMAIL }}
   SURREY_PASSWORD: ${{ secrets.SURREY_PASSWORD }}
-  HEADLESS: 'false'  # IMPORTANT: Use headed mode with Xvfb
+  HEADLESS: "false" # IMPORTANT: Use headed mode with Xvfb
 
 jobs:
   # Manual booking job
@@ -61,7 +61,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -69,8 +69,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci
@@ -116,43 +116,43 @@ jobs:
     if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    
+
     strategy:
       fail-fast: false
       matrix:
         include:
           # Wednesday 9AM PST releases (Saturday bookings + Pickleball)
-          - cron_match: '0 17 * * 3'
+          - cron_match: "0 17 * * 3"
             bookings: |
               [
                 {"activity": "Drop In Badminton - 13+", "time": "07:15 am", "location": "Guildford", "days_ahead": 3},
                 {"activity": "Drop In Badminton - 13+", "time": "07:15 am", "location": "Bear Creek Park", "days_ahead": 3},
                 {"activity": "Drop In Pickleball - Adult", "time": "01:15 pm", "location": "Cloverdale", "days_ahead": 3}
               ]
-          
+
           # Thursday 9AM PST releases (Sunday bookings)
-          - cron_match: '0 17 * * 4'
+          - cron_match: "0 17 * * 4"
             bookings: |
               [
                 {"activity": "Drop In Badminton - 13+", "time": "06:45 am", "location": "Guildford", "days_ahead": 3}
               ]
-          
+
           # Friday 9AM PST releases (Monday bookings)
-          - cron_match: '0 17 * * 5'
+          - cron_match: "0 17 * * 5"
             bookings: |
               [
                 {"activity": "Drop In Badminton - 13+", "time": "07:15 am", "location": "Guildford", "days_ahead": 3}
               ]
-          
+
           # Saturday 9AM PST releases (Tuesday bookings)
-          - cron_match: '0 17 * * 6'
+          - cron_match: "0 17 * * 6"
             bookings: |
               [
                 {"activity": "Drop In Badminton - 13+", "time": "06:45 am", "location": "Guildford", "days_ahead": 3}
               ]
-          
+
           # Tuesday 9AM PST releases (Friday bookings)
-          - cron_match: '0 17 * * 2'
+          - cron_match: "0 17 * * 2"
             bookings: |
               [
                 {"activity": "Drop In Badminton - 13+", "time": "07:15 am", "location": "Guildford", "days_ahead": 3}
@@ -165,7 +165,7 @@ jobs:
           # Get current cron expression that triggered this
           CURRENT_CRON="${{ github.event.schedule }}"
           MATRIX_CRON="${{ matrix.cron_match }}"
-          
+
           if [ "$CURRENT_CRON" = "$MATRIX_CRON" ]; then
             echo "should_run=true" >> $GITHUB_OUTPUT
             echo "✅ This job matches the schedule: $CURRENT_CRON"
@@ -182,8 +182,8 @@ jobs:
         if: steps.check.outputs.should_run == 'true'
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Install dependencies
         if: steps.check.outputs.should_run == 'true'
@@ -216,7 +216,7 @@ jobs:
           run: |
             BOOKINGS='${{ matrix.bookings }}'
             BOOKING_DATE="${{ steps.date.outputs.booking_date }}"
-            
+
             echo "🎯 Running bookings for date: $BOOKING_DATE"
             echo "$BOOKINGS" | jq -c '.[]' | while read booking; do
               ACTIVITY=$(echo $booking | jq -r '.activity')

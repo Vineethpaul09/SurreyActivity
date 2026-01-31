@@ -1,0 +1,246 @@
+name: Surrey Booking Scheduler
+
+on:
+  # Manual trigger with inputs
+  workflow_dispatch:
+    inputs:
+      activity:
+        description: 'Activity name (e.g., "Drop In Badminton - 13+")'
+        required: true
+        type: string
+      date:
+        description: 'Date (DD-MMM-YYYY format, e.g., "01-Feb-2026")'
+        required: true
+        type: string
+      time:
+        description: 'Time (e.g., "07:15 am")'
+        required: true
+        type: string
+      location:
+        description: 'Location (e.g., "Guildford")'
+        required: true
+        type: string
+      test_only:
+        description: 'Test only (do not complete booking)'
+        required: false
+        type: boolean
+        default: false
+
+  # Scheduled runs - all times in UTC (PST + 8 hours)
+  # Badminton bookings release at 9:00 AM PST on specific days
+  schedule:
+    # Saturday Guildford 7:15am - releases Wednesday 9AM PST = 17:00 UTC
+    - cron: '0 17 * * 3'  # Wednesday 5PM UTC = 9AM PST
+    
+    # Saturday Bear Creek 7:15am - releases Wednesday 9AM PST
+    # (same cron, handled by job matrix)
+    
+    # Sunday Guildford 6:45am - releases Thursday 9AM PST = 17:00 UTC
+    - cron: '0 17 * * 4'  # Thursday 5PM UTC = 9AM PST
+    
+    # Monday Guildford 7:15am - releases Friday 9AM PST
+    - cron: '0 17 * * 5'  # Friday 5PM UTC = 9AM PST
+    
+    # Tuesday Guildford 6:45am - releases Saturday 9AM PST
+    - cron: '0 17 * * 6'  # Saturday 5PM UTC = 9AM PST
+    
+    # Wednesday Cloverdale Pickleball 1:15pm - releases Wednesday 9AM PST
+    # (same as first cron)
+    
+    # Friday Guildford 7:15am - releases Tuesday 9AM PST
+    - cron: '0 17 * * 2'  # Tuesday 5PM UTC = 9AM PST
+
+env:
+  SURREY_EMAIL: ${{ secrets.SURREY_EMAIL }}
+  SURREY_PASSWORD: ${{ secrets.SURREY_PASSWORD }}
+  HEADLESS: 'false'  # IMPORTANT: Use headed mode with Xvfb
+
+jobs:
+  # Manual booking job
+  manual-booking:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+
+      - name: Create .env file
+        run: |
+          echo "SURREY_EMAIL=${{ secrets.SURREY_EMAIL }}" > .env
+          echo "SURREY_PASSWORD=${{ secrets.SURREY_PASSWORD }}" >> .env
+          echo "HEADLESS=false" >> .env
+
+      - name: Run booking with Xvfb (virtual display)
+        uses: coactions/setup-xvfb@v1
+        with:
+          run: |
+            npx ts-node src/cli.ts book \
+              -a "${{ inputs.activity }}" \
+              -d "${{ inputs.date }}" \
+              -t "${{ inputs.time }}" \
+              -l "${{ inputs.location }}" \
+              ${{ inputs.test_only && '--test-only' || '' }}
+
+      - name: Upload screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: booking-screenshots
+          path: screenshots/
+          retention-days: 7
+
+      - name: Upload screenshots on success
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: booking-screenshots-success
+          path: screenshots/
+          retention-days: 3
+
+  # Scheduled booking jobs
+  scheduled-booking:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Wednesday 9AM PST releases (Saturday bookings + Pickleball)
+          - cron_match: '0 17 * * 3'
+            bookings: |
+              [
+                {"activity": "Drop In Badminton - 13+", "time": "07:15 am", "location": "Guildford", "days_ahead": 3},
+                {"activity": "Drop In Badminton - 13+", "time": "07:15 am", "location": "Bear Creek Park", "days_ahead": 3},
+                {"activity": "Drop In Pickleball - Adult", "time": "01:15 pm", "location": "Cloverdale", "days_ahead": 3}
+              ]
+          
+          # Thursday 9AM PST releases (Sunday bookings)
+          - cron_match: '0 17 * * 4'
+            bookings: |
+              [
+                {"activity": "Drop In Badminton - 13+", "time": "06:45 am", "location": "Guildford", "days_ahead": 3}
+              ]
+          
+          # Friday 9AM PST releases (Monday bookings)
+          - cron_match: '0 17 * * 5'
+            bookings: |
+              [
+                {"activity": "Drop In Badminton - 13+", "time": "07:15 am", "location": "Guildford", "days_ahead": 3}
+              ]
+          
+          # Saturday 9AM PST releases (Tuesday bookings)
+          - cron_match: '0 17 * * 6'
+            bookings: |
+              [
+                {"activity": "Drop In Badminton - 13+", "time": "06:45 am", "location": "Guildford", "days_ahead": 3}
+              ]
+          
+          # Tuesday 9AM PST releases (Friday bookings)
+          - cron_match: '0 17 * * 2'
+            bookings: |
+              [
+                {"activity": "Drop In Badminton - 13+", "time": "07:15 am", "location": "Guildford", "days_ahead": 3}
+              ]
+
+    steps:
+      - name: Check if this job should run
+        id: check
+        run: |
+          # Get current cron expression that triggered this
+          CURRENT_CRON="${{ github.event.schedule }}"
+          MATRIX_CRON="${{ matrix.cron_match }}"
+          
+          if [ "$CURRENT_CRON" = "$MATRIX_CRON" ]; then
+            echo "should_run=true" >> $GITHUB_OUTPUT
+            echo "✅ This job matches the schedule: $CURRENT_CRON"
+          else
+            echo "should_run=false" >> $GITHUB_OUTPUT
+            echo "⏭️ Skipping - schedule $CURRENT_CRON doesn't match $MATRIX_CRON"
+          fi
+
+      - name: Checkout code
+        if: steps.check.outputs.should_run == 'true'
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        if: steps.check.outputs.should_run == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        if: steps.check.outputs.should_run == 'true'
+        run: npm ci
+
+      - name: Install Playwright browsers
+        if: steps.check.outputs.should_run == 'true'
+        run: npx playwright install chromium --with-deps
+
+      - name: Create .env file
+        if: steps.check.outputs.should_run == 'true'
+        run: |
+          echo "SURREY_EMAIL=${{ secrets.SURREY_EMAIL }}" > .env
+          echo "SURREY_PASSWORD=${{ secrets.SURREY_PASSWORD }}" >> .env
+          echo "HEADLESS=false" >> .env
+
+      - name: Calculate booking date
+        if: steps.check.outputs.should_run == 'true'
+        id: date
+        run: |
+          # Calculate date 3 days from now in DD-MMM-YYYY format
+          BOOKING_DATE=$(date -d "+3 days" +"%d-%b-%Y")
+          echo "booking_date=$BOOKING_DATE" >> $GITHUB_OUTPUT
+          echo "📅 Booking date: $BOOKING_DATE"
+
+      - name: Run scheduled bookings with Xvfb
+        if: steps.check.outputs.should_run == 'true'
+        uses: coactions/setup-xvfb@v1
+        with:
+          run: |
+            BOOKINGS='${{ matrix.bookings }}'
+            BOOKING_DATE="${{ steps.date.outputs.booking_date }}"
+            
+            echo "🎯 Running bookings for date: $BOOKING_DATE"
+            echo "$BOOKINGS" | jq -c '.[]' | while read booking; do
+              ACTIVITY=$(echo $booking | jq -r '.activity')
+              TIME=$(echo $booking | jq -r '.time')
+              LOCATION=$(echo $booking | jq -r '.location')
+              
+              echo "═══════════════════════════════════════════════════════"
+              echo "📍 Booking: $ACTIVITY at $TIME - $LOCATION"
+              echo "═══════════════════════════════════════════════════════"
+              
+              npx ts-node src/cli.ts book \
+                -a "$ACTIVITY" \
+                -d "$BOOKING_DATE" \
+                -t "$TIME" \
+                -l "$LOCATION" || true
+              
+              # Small delay between bookings
+              sleep 5
+            done
+
+      - name: Upload screenshots
+        if: steps.check.outputs.should_run == 'true' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scheduled-booking-screenshots-${{ github.run_id }}
+          path: screenshots/
+          retention-days: 7

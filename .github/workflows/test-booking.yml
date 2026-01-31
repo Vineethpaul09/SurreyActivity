@@ -1,0 +1,75 @@
+name: Test Booking (Dry Run)
+
+on:
+  workflow_dispatch:
+    inputs:
+      activity:
+        description: 'Activity name'
+        required: true
+        default: 'Drop In Badminton - 13+'
+        type: string
+      date:
+        description: 'Date (DD-MMM-YYYY)'
+        required: true
+        type: string
+      time:
+        description: 'Time (e.g., 07:15 am)'
+        required: true
+        default: '07:15 am'
+        type: string
+      location:
+        description: 'Location'
+        required: true
+        default: 'Guildford'
+        type: string
+
+env:
+  SURREY_EMAIL: ${{ secrets.SURREY_EMAIL }}
+  SURREY_PASSWORD: ${{ secrets.SURREY_PASSWORD }}
+  HEADLESS: 'false'
+
+jobs:
+  test-booking:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+
+      - name: Create .env file
+        run: |
+          echo "SURREY_EMAIL=${{ secrets.SURREY_EMAIL }}" > .env
+          echo "SURREY_PASSWORD=${{ secrets.SURREY_PASSWORD }}" >> .env
+          echo "HEADLESS=false" >> .env
+
+      - name: Test booking with Xvfb (TEST ONLY - no actual booking)
+        uses: coactions/setup-xvfb@v1
+        with:
+          run: |
+            npx ts-node src/cli.ts book \
+              -a "${{ inputs.activity }}" \
+              -d "${{ inputs.date }}" \
+              -t "${{ inputs.time }}" \
+              -l "${{ inputs.location }}" \
+              --test-only
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-screenshots
+          path: screenshots/
+          retention-days: 3

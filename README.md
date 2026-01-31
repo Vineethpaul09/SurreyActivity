@@ -17,7 +17,7 @@ Edit the `.env` file with your credentials:
 ```env
 SURREY_EMAIL=your-email@example.com
 SURREY_PASSWORD=your-password
-HEADLESS=false
+HEADLESS=true
 ```
 
 ### 3. Run a Booking

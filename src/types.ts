@@ -51,7 +51,12 @@ export interface BookingResult {
   waitlisted?: boolean;
 }
 
-export type SlotStatus = "available" | "waitlist" | "full" | "not-found";
+export type SlotStatus =
+  | "available"
+  | "waitlist"
+  | "full"
+  | "not-found"
+  | "more-info";
 
 export interface SlotInfo {
   status: SlotStatus;

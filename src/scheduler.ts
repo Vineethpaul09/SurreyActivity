@@ -97,8 +97,6 @@ function getNextTargetDate(
 }
 
 const SCHEDULES: ScheduleConfig[] = [
-
-  
   // ============ BADMINTON SCHEDULES ============
   {
     id: "friday-monday-cloverdale",
@@ -172,6 +170,31 @@ const SCHEDULES: ScheduleConfig[] = [
     time: "10:00 am",
     description: "Thursday 10:00 AM → Book Sunday @ Fraser Heights",
   },
+  {
+    id: "wednesday-saturday-guildford",
+    activity: ACTIVITY,
+    cronExpression: "59 17 * * 3", // Wednesday at 5:58 PM (2 min before 6:00 PM release)
+    cronDay: 3, // Wednesday
+    releaseHour: 18,
+    releaseMinute: 0,
+    targetDay: (d) => nextSaturday(d),
+    location: LOCATIONS.GUILDFORD,
+    time: "6:30 pm",
+    description: "Wednesday 6:30 PM → Book Saturday @ Guildford",
+  },
+  {
+    id: "wednesday-saturday-fraser-basketball",
+    activity: "Drop In Basketball - Adult",
+    cronExpression: "49 17 * * 3", // Wednesday at 5:43 PM (2 min before 5:45 PM release)
+    cronDay: 3, // Wednesday
+    releaseHour: 17,
+    releaseMinute: 49,
+    targetDay: (d) => nextSaturday(d),
+    location: LOCATIONS.FRASER_HEIGHTS,
+    time: "03:15 pm",
+    description:
+      "Wednesday 03:15 pm → Book Saturday @ Fraser Heights (Basketball)",
+  },
 ];
 
 /**
@@ -179,56 +202,6 @@ const SCHEDULES: ScheduleConfig[] = [
  */
 function formatBookingDate(date: Date): string {
   return format(date, "dd-MMM-yyyy");
-}
-
-/**
- * Wait until the exact release time (in PST)
- */
-async function waitUntilReleaseTime(
-  releaseHour: number,
-  releaseMinute: number,
-): Promise<void> {
-  const log = getLogger();
-
-  log.info("═".repeat(50));
-  log.info(
-    `⏰ Waiting for release time ${releaseHour}:${releaseMinute.toString().padStart(2, "0")} PST`,
-  );
-  log.info("═".repeat(50));
-
-  while (true) {
-    const now = getNowPST();
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
-    const currentSecond = now.getSeconds();
-
-    // Check if we've reached or passed release time
-    if (
-      currentHour > releaseHour ||
-      (currentHour === releaseHour && currentMinute >= releaseMinute)
-    ) {
-      log.info(
-        `🚀 Release time reached! Current PST: ${currentHour}:${currentMinute.toString().padStart(2, "0")}:${currentSecond.toString().padStart(2, "0")}`,
-      );
-      break;
-    }
-
-    // Calculate time remaining
-    const releaseDate = getNowPST();
-    releaseDate.setHours(releaseHour, releaseMinute, 0, 0);
-    const msRemaining = releaseDate.getTime() - now.getTime();
-    const secRemaining = Math.ceil(msRemaining / 1000);
-
-    log.info(
-      `   ⏳ Waiting... ${Math.floor(secRemaining / 60)}m ${secRemaining % 60}s until ${releaseHour}:${releaseMinute.toString().padStart(2, "0")} PST`,
-    );
-
-    // Wait 5 seconds before checking again (or less if close to release)
-    const waitTime = Math.min(5000, msRemaining);
-    await new Promise((resolve) =>
-      setTimeout(resolve, Math.max(waitTime, 1000)),
-    );
-  }
 }
 
 /**
@@ -248,18 +221,6 @@ async function executeBooking(schedule: ScheduleConfig): Promise<void> {
   log.info(`   Activity: ${schedule.activity}`);
   log.info("═".repeat(60));
 
-  // STEP 1: Wait until release time (skip for test-only schedules run manually)
-  if (!schedule.testOnly) {
-    await waitUntilReleaseTime(schedule.releaseHour, schedule.releaseMinute);
-  } else {
-    log.info(`⚡ Test mode - skipping wait for release time`);
-  }
-
-  // STEP 2: Now call the working booking automation
-  log.info("═".repeat(50));
-  log.info(`🚀 Starting booking...`);
-  log.info("═".repeat(50));
-
   const envConfig = loadEnvConfig();
   const bookingConfig = loadBookingConfig();
 
@@ -277,7 +238,24 @@ async function executeBooking(schedule: ScheduleConfig): Promise<void> {
   };
 
   try {
-    const result = await automation.book(bookingParams);
+    // Use phased booking for scheduled bookings (not test-only)
+    // This starts immediately, completes login/navigation during buffer time,
+    // then waits at registration page until exact release time
+    let result;
+    if (!schedule.testOnly) {
+      log.info("🚀 Starting PHASED booking (optimized for speed)...");
+      log.info(
+        `   ⏱️  Will prepare now, then wait until ${schedule.releaseHour}:${schedule.releaseMinute.toString().padStart(2, "0")} PST`,
+      );
+      result = await automation.bookWithPhases(
+        bookingParams,
+        schedule.releaseHour,
+        schedule.releaseMinute,
+      );
+    } else {
+      log.info("⚡ Test mode - using standard booking (no wait)");
+      result = await automation.book(bookingParams);
+    }
 
     if (result.success) {
       logSuccess(`✅ BOOKING SUCCESSFUL!`);

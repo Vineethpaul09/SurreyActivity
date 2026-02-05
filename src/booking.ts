@@ -474,19 +474,23 @@ export class SurreyBookingAutomation {
           log.info(`✓ Found matching event row ${i + 1}!`);
           log.info(`  Preview: ${rowText.substring(0, 120)}...`);
 
-          // STEP 3: Find and click the Register/Waitlist button in THIS row
-          log.info("Step 3: Finding Register button in this row...");
+          // STEP 3: Find and click the Register/Waitlist/More Info button in THIS row
+          log.info("Step 3: Finding action button in this row...");
 
-          // Look for input[type="button"] with value="Register" or "Waitlist"
+          // Look for input[type="button"] with value="Register", "Waitlist", or "More Info"
           const registerBtn = await row.$(
             'input[type="button"][value="Register"]',
           );
           const waitlistBtn = await row.$(
             'input[type="button"][value="Waitlist"]',
           );
+          const moreInfoBtn = await row.$(
+            'input[type="button"][value="More Info"]',
+          );
 
           log.info(`  Register button found: ${!!registerBtn}`);
           log.info(`  Waitlist button found: ${!!waitlistBtn}`);
+          log.info(`  More Info button found: ${!!moreInfoBtn}`);
 
           if (registerBtn) {
             const ariaLabel = await registerBtn.getAttribute("aria-label");
@@ -498,6 +502,20 @@ export class SurreyBookingAutomation {
             await registerBtn.click();
             await this.page.waitForTimeout(2000);
             return { status: "available", buttonRef: "register" };
+          }
+
+          if (moreInfoBtn) {
+            const ariaLabel = await moreInfoBtn.getAttribute("aria-label");
+            log.info(`  More Info button aria-label: "${ariaLabel}"`);
+
+            logSuccess(
+              `Found More Info button (before release time) - clicking it`,
+            );
+            await moreInfoBtn.scrollIntoViewIfNeeded();
+            await this.page.waitForTimeout(500);
+            await moreInfoBtn.click();
+            await this.page.waitForTimeout(2000);
+            return { status: "more-info", buttonRef: "more-info" };
           }
 
           if (waitlistBtn) {
@@ -770,6 +788,240 @@ export class SurreyBookingAutomation {
       logError("Registration failed", error as Error);
       await this.takeScreenshot("registration-error");
       return false;
+    }
+  }
+
+  /**
+   * PHASE 1: Prepare for booking (login, navigate, find slot, click register)
+   * This is executed during the 2-minute buffer before release time
+   */
+  async prepareForBooking(params: BookingParams): Promise<{
+    success: boolean;
+    slotInfo?: SlotInfo;
+    message: string;
+  }> {
+    const log = getLogger();
+    log.info("═".repeat(60));
+    log.info("🚀 PHASE 1: Preparing for booking (during buffer time)");
+    log.info("═".repeat(60));
+
+    try {
+      // Initialize browser
+      await this.initialize();
+
+      // Login
+      const loginSuccess = await this.login();
+      if (!loginSuccess) {
+        return { success: false, message: "Login failed" };
+      }
+
+      // Navigate and filter
+      const filterSuccess = await this.navigateAndFilter(params);
+      if (!filterSuccess) {
+        return { success: false, message: "Failed to apply filters" };
+      }
+
+      // Find and select slot (clicks Register button)
+      const slotInfo = await this.findAndSelectSlot(params);
+
+      if (slotInfo.status === "not-found") {
+        return { success: false, message: "Slot not found" };
+      }
+
+      if (slotInfo.status === "full" && !params.preferWaitlist) {
+        return { success: false, message: "Slot is full" };
+      }
+
+      log.info("✅ Phase 1 complete: Ready at registration page");
+      return { success: true, slotInfo, message: "Ready for booking" };
+    } catch (error) {
+      logError("Phase 1 failed", error as Error);
+      return { success: false, message: (error as Error).message };
+    }
+  }
+
+  /**
+   * PHASE 2: Wait until release time, refresh, and complete registration
+   */
+  async waitAndCompleteBooking(
+    releaseHour: number,
+    releaseMinute: number,
+  ): Promise<boolean> {
+    const log = getLogger();
+    if (!this.page) throw new Error("Browser not initialized");
+
+    log.info("═".repeat(60));
+    log.info("⏰ PHASE 2: Waiting for release time, then completing booking");
+    log.info("═".repeat(60));
+
+    // Wait until release time
+    await this.waitUntilReleaseTime(releaseHour, releaseMinute);
+
+    // Refresh and find Register button (with retry)
+    let registerFound = false;
+    const maxRetries = 2;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      log.info(
+        `🔄 Refresh attempt ${attempt}/${maxRetries} - looking for Register button...`,
+      );
+      await this.page.reload({ waitUntil: "networkidle" });
+      await this.page.waitForTimeout(1000);
+
+      // Look for Register button or link
+      const registerBtn = await this.page.$(
+        'input[type="button"][value="Register"], button:has-text("Register")',
+      );
+      const registerLink = await this.page.$(
+        'a[href*="BookMe4EventParticipants"]:has-text("Register")',
+      );
+
+      if (registerBtn || registerLink) {
+        log.info(`✅ Register button/link found on attempt ${attempt}!`);
+
+        if (registerLink) {
+          log.info("Clicking Register link...");
+          await registerLink.click();
+          await this.page.waitForTimeout(2000);
+        } else if (registerBtn) {
+          log.info("Clicking Register button...");
+          await registerBtn.click();
+          await this.page.waitForTimeout(2000);
+        }
+
+        registerFound = true;
+        break;
+      } else {
+        log.warn(`Register button not found on attempt ${attempt}`);
+        if (attempt < maxRetries) {
+          log.info("Waiting 1 second before retry...");
+          await this.page.waitForTimeout(1000);
+        }
+      }
+    }
+
+    if (!registerFound) {
+      logError("Register button not found after all refresh attempts");
+      await this.takeScreenshot("register-button-not-found");
+      return false;
+    }
+
+    // Complete registration
+    const success = await this.completeRegistration();
+
+    return success;
+  }
+
+  /**
+   * Wait until the exact release time
+   */
+  private async waitUntilReleaseTime(
+    releaseHour: number,
+    releaseMinute: number,
+  ): Promise<void> {
+    const log = getLogger();
+    const TIMEZONE = "America/Vancouver";
+    const { toZonedTime } = require("date-fns-tz");
+
+    const getNowPST = () => toZonedTime(new Date(), TIMEZONE);
+
+    log.info("═".repeat(50));
+    log.info(
+      `⏰ Waiting for release time ${releaseHour}:${releaseMinute.toString().padStart(2, "0")} PST`,
+    );
+    log.info("═".repeat(50));
+
+    while (true) {
+      const now = getNowPST();
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+      const currentSecond = now.getSeconds();
+
+      // Check if we've reached or passed release time
+      if (
+        currentHour > releaseHour ||
+        (currentHour === releaseHour && currentMinute >= releaseMinute)
+      ) {
+        log.info(
+          `🚀 Release time reached! Current PST: ${currentHour}:${currentMinute.toString().padStart(2, "0")}:${currentSecond.toString().padStart(2, "0")}`,
+        );
+        break;
+      }
+
+      // Calculate time remaining
+      const releaseDate = getNowPST();
+      releaseDate.setHours(releaseHour, releaseMinute, 0, 0);
+      const msRemaining = releaseDate.getTime() - now.getTime();
+      const secRemaining = Math.ceil(msRemaining / 1000);
+
+      log.info(
+        `   ⏳ Waiting at registration page... ${Math.floor(secRemaining / 60)}m ${secRemaining % 60}s until ${releaseHour}:${releaseMinute.toString().padStart(2, "0")} PST`,
+      );
+
+      // Wait 5 seconds before checking again (or less if close to release)
+      const waitTime = Math.min(5000, msRemaining);
+      await new Promise((resolve) =>
+        setTimeout(resolve, Math.max(waitTime, 1000)),
+      );
+    }
+  }
+
+  /**
+   * Main phased booking method - for scheduled bookings with buffer time
+   */
+  async bookWithPhases(
+    params: BookingParams,
+    releaseHour: number,
+    releaseMinute: number,
+  ): Promise<BookingResult> {
+    logBookingAttempt(params);
+
+    const result: BookingResult = {
+      success: false,
+      activity: params.activity,
+      date: params.date,
+      time: params.time,
+      location: params.location,
+      message: "",
+      timestamp: new Date(),
+    };
+
+    try {
+      // Phase 1: Prepare (login, navigate, click register)
+      const prepareResult = await this.prepareForBooking(params);
+
+      if (!prepareResult.success) {
+        result.message = prepareResult.message;
+        result.error = `Phase 1 failed: ${prepareResult.message}`;
+        return result;
+      }
+
+      // Phase 2: Wait and complete
+      const registrationSuccess = await this.waitAndCompleteBooking(
+        releaseHour,
+        releaseMinute,
+      );
+
+      if (registrationSuccess) {
+        result.success = true;
+        result.waitlisted = prepareResult.slotInfo?.status === "waitlist";
+        result.message =
+          prepareResult.slotInfo?.status === "waitlist"
+            ? "Successfully added to waitlist"
+            : "Booking completed successfully";
+      } else {
+        result.message = "Registration failed";
+        result.error = "Could not complete the registration process";
+      }
+
+      return result;
+    } catch (error) {
+      result.message = "Booking failed";
+      result.error = (error as Error).message;
+      logError("Booking failed", error as Error);
+      return result;
+    } finally {
+      await this.cleanup();
     }
   }
 

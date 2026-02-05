@@ -97,44 +97,32 @@ function getNextTargetDate(
 }
 
 const SCHEDULES: ScheduleConfig[] = [
-  // ============ PICKLEBALL SCHEDULES ============
-  {
-    id: "wednesday-saturday-cloverdale-pickleball",
-    activity: "Drop In Pickleball - Adult",
-    cronExpression: "58 8 * * 3", // Wednesday at 8:58 AM (2 min before 9:00 AM release)
-    cronDay: 3, // Wednesday
-    releaseHour: 9,
-    releaseMinute: 0,
-    targetDay: (d) => nextSaturday(d),
-    location: LOCATIONS.CLOVERDALE,
-    time: "9:00 am",
-    description: "Wednesday 9:00 AM → Book Saturday Pickleball @ Cloverdale",
-    testOnly: false,
-  },
+
+  
   // ============ BADMINTON SCHEDULES ============
   {
     id: "friday-monday-cloverdale",
     activity: ACTIVITY,
-    cronExpression: "13 18 * * 5", // Friday at 6:13 PM (2 min before 6:15 PM release)
+    cronExpression: "28 18 * * 5", // Friday at 6:13 PM (2 min before 6:15 PM release)
     cronDay: 5, // Friday
     releaseHour: 18,
-    releaseMinute: 15,
+    releaseMinute: 30,
     targetDay: (d) => nextMonday(d),
     location: LOCATIONS.CLOVERDALE,
-    time: "8:15 am",
-    description: "Friday 6:15 PM → Book Monday @ Cloverdale",
+    time: "6:30 am",
+    description: "Friday 6:30 PM → Book Monday @ Cloverdale",
   },
   {
     id: "saturday-tuesday-guildford",
     activity: ACTIVITY,
-    cronExpression: "28 18 * * 6", // Saturday at 6:28 PM (2 min before 6:30 PM release)
+    cronExpression: "58 18 * * 6",
     cronDay: 6, // Saturday
-    releaseHour: 18,
-    releaseMinute: 30,
+    releaseHour: 19,
+    releaseMinute: 0,
     targetDay: (d) => nextTuesday(d),
     location: LOCATIONS.GUILDFORD,
-    time: "8:15 am",
-    description: "Saturday 6:30 PM → Book Tuesday @ Guildford",
+    time: "7:00 PM",
+    description: "Saturday 7:00 PM → Book Tuesday @ Guildford",
   },
   {
     id: "sunday-wednesday-fraser",
@@ -145,7 +133,7 @@ const SCHEDULES: ScheduleConfig[] = [
     releaseMinute: 15,
     targetDay: (d) => nextWednesday(d),
     location: LOCATIONS.FRASER_HEIGHTS,
-    time: "8:15 am",
+    time: "6:15 am",
     description: "Sunday 6:15 PM → Book Wednesday @ Fraser Heights",
   },
   {
@@ -157,7 +145,7 @@ const SCHEDULES: ScheduleConfig[] = [
     releaseMinute: 0,
     targetDay: (d) => nextThursday(d),
     location: LOCATIONS.GUILDFORD,
-    time: "8:15 am",
+    time: "7:00 am",
     description: "Monday 7:00 PM → Book Thursday @ Guildford",
   },
   {
@@ -169,7 +157,7 @@ const SCHEDULES: ScheduleConfig[] = [
     releaseMinute: 0,
     targetDay: (d) => nextSaturday(d),
     location: LOCATIONS.FRASER_HEIGHTS,
-    time: "8:15 am",
+    time: "10:00 am",
     description: "Wednesday 10:00 AM → Book Saturday @ Fraser Heights",
   },
   {
@@ -181,7 +169,7 @@ const SCHEDULES: ScheduleConfig[] = [
     releaseMinute: 0,
     targetDay: (d) => nextSunday(d),
     location: LOCATIONS.FRASER_HEIGHTS,
-    time: "8:15 am",
+    time: "10:00 am",
     description: "Thursday 10:00 AM → Book Sunday @ Fraser Heights",
   },
 ];

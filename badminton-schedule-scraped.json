@@ -1,0 +1,318 @@
+{
+  "scrapedEvents": [
+    {
+      "day": "Wed",
+      "startTime": "07:45 pm",
+      "endTime": "09:15 pm",
+      "location": "Cloverdale Recreation Centre",
+      "fullTime": "07:45 pm - 09:15 pm"
+    },
+    {
+      "day": "Thu",
+      "startTime": "05:30 pm",
+      "endTime": "07:00 pm",
+      "location": "Clayton Community Centre",
+      "fullTime": "05:30 pm - 07:00 pm"
+    },
+    {
+      "day": "Thu",
+      "startTime": "07:00 pm",
+      "endTime": "08:30 pm",
+      "location": "Guildford Recreation Centre",
+      "fullTime": "07:00 pm - 08:30 pm"
+    },
+    {
+      "day": "Thu",
+      "startTime": "07:30 pm",
+      "endTime": "09:30 pm",
+      "location": "Princess Margaret Secondary School",
+      "fullTime": "07:30 pm - 09:30 pm"
+    },
+    {
+      "day": "Thu",
+      "startTime": "08:15 pm",
+      "endTime": "09:45 pm",
+      "location": "Coyote Creek Elementary School",
+      "fullTime": "08:15 pm - 09:45 pm"
+    },
+    {
+      "day": "Fri",
+      "startTime": "11:00 am",
+      "endTime": "12:30 pm",
+      "location": "Chuck Bailey Recreation Centre",
+      "fullTime": "11:00 am - 12:30 pm"
+    },
+    {
+      "day": "Fri",
+      "startTime": "05:30 pm",
+      "endTime": "07:00 pm",
+      "location": "South Surrey Recreation & Arts Centre",
+      "fullTime": "05:30 pm - 07:00 pm"
+    },
+    {
+      "day": "Fri",
+      "startTime": "06:30 pm",
+      "endTime": "08:00 pm",
+      "location": "Cloverdale Recreation Centre",
+      "fullTime": "06:30 pm - 08:00 pm"
+    },
+    {
+      "day": "Sat",
+      "startTime": "10:00 am",
+      "endTime": "11:30 am",
+      "location": "Fraser Heights Recreation Centre",
+      "fullTime": "10:00 am - 11:30 am"
+    },
+    {
+      "day": "Sat",
+      "startTime": "06:00 pm",
+      "endTime": "07:30 pm",
+      "location": "Guildford Recreation Centre",
+      "fullTime": "06:00 pm - 07:30 pm"
+    },
+    {
+      "day": "Sun",
+      "startTime": "08:30 am",
+      "endTime": "10:00 am",
+      "location": "Guildford Recreation Centre",
+      "fullTime": "08:30 am - 10:00 am"
+    },
+    {
+      "day": "Sun",
+      "startTime": "10:00 am",
+      "endTime": "11:30 am",
+      "location": "Fraser Heights Recreation Centre",
+      "fullTime": "10:00 am - 11:30 am"
+    },
+    {
+      "day": "Sun",
+      "startTime": "10:45 am",
+      "endTime": "12:15 pm",
+      "location": "Clayton Community Centre",
+      "fullTime": "10:45 am - 12:15 pm"
+    },
+    {
+      "day": "Sun",
+      "startTime": "02:00 pm",
+      "endTime": "03:30 pm",
+      "location": "Guildford Recreation Centre",
+      "fullTime": "02:00 pm - 03:30 pm"
+    },
+    {
+      "day": "Mon",
+      "startTime": "06:30 pm",
+      "endTime": "08:00 pm",
+      "location": "Cloverdale Recreation Centre",
+      "fullTime": "06:30 pm - 08:00 pm"
+    },
+    {
+      "day": "Tue",
+      "startTime": "06:30 pm",
+      "endTime": "08:00 pm",
+      "location": "Chuck Bailey Recreation Centre",
+      "fullTime": "06:30 pm - 08:00 pm"
+    },
+    {
+      "day": "Tue",
+      "startTime": "07:00 pm",
+      "endTime": "08:30 pm",
+      "location": "Guildford Recreation Centre",
+      "fullTime": "07:00 pm - 08:30 pm"
+    },
+    {
+      "day": "Tue",
+      "startTime": "07:15 pm",
+      "endTime": "08:45 pm",
+      "location": "South Surrey Recreation & Arts Centre",
+      "fullTime": "07:15 pm - 08:45 pm"
+    },
+    {
+      "day": "Tue",
+      "startTime": "07:30 pm",
+      "endTime": "09:30 pm",
+      "location": "Princess Margaret Secondary School",
+      "fullTime": "07:30 pm - 09:30 pm"
+    },
+    {
+      "day": "Tue",
+      "startTime": "08:15 pm",
+      "endTime": "09:45 pm",
+      "location": "Coyote Creek Elementary School",
+      "fullTime": "08:15 pm - 09:45 pm"
+    },
+    {
+      "day": "Wed",
+      "startTime": "09:15 am",
+      "endTime": "10:45 am",
+      "location": "Cloverdale Recreation Centre",
+      "fullTime": "09:15 am - 10:45 am"
+    },
+    {
+      "day": "Wed",
+      "startTime": "06:15 pm",
+      "endTime": "07:45 pm",
+      "location": "Fraser Heights Recreation Centre",
+      "fullTime": "06:15 pm - 07:45 pm"
+    }
+  ],
+  "uniqueRecurringPatterns": [
+    {
+      "day": "Mon",
+      "time": "06:30 pm",
+      "location": "Cloverdale Recreation Centre",
+      "note": "Monday evenings at Cloverdale"
+    },
+    {
+      "day": "Tue",
+      "time": "06:30 pm",
+      "location": "Chuck Bailey Recreation Centre",
+      "note": "Tuesday evenings at Chuck Bailey"
+    },
+    {
+      "day": "Tue",
+      "time": "07:00 pm",
+      "location": "Guildford Recreation Centre",
+      "note": "Tuesday evenings at Guildford (early)"
+    },
+    {
+      "day": "Tue",
+      "time": "07:15 pm",
+      "location": "South Surrey Recreation & Arts Centre",
+      "note": "Tuesday evenings at South Surrey"
+    },
+    {
+      "day": "Tue",
+      "time": "07:30 pm",
+      "location": "Princess Margaret Secondary School",
+      "note": "Tuesday evenings at Princess Margaret"
+    },
+    {
+      "day": "Tue",
+      "time": "08:15 pm",
+      "location": "Coyote Creek Elementary School",
+      "note": "Tuesday late evenings at Coyote Creek"
+    },
+    {
+      "day": "Wed",
+      "time": "09:15 am",
+      "location": "Cloverdale Recreation Centre",
+      "note": "Wednesday mornings at Cloverdale"
+    },
+    {
+      "day": "Wed",
+      "time": "06:15 pm",
+      "location": "Fraser Heights Recreation Centre",
+      "note": "Wednesday evenings at Fraser Heights"
+    },
+    {
+      "day": "Wed",
+      "time": "07:45 pm",
+      "location": "Cloverdale Recreation Centre",
+      "note": "Wednesday evenings at Cloverdale"
+    },
+    {
+      "day": "Thu",
+      "time": "05:30 pm",
+      "location": "Clayton Community Centre",
+      "note": "Thursday evenings at Clayton"
+    },
+    {
+      "day": "Thu",
+      "time": "07:00 pm",
+      "location": "Guildford Recreation Centre",
+      "note": "Thursday evenings at Guildford"
+    },
+    {
+      "day": "Thu",
+      "time": "07:30 pm",
+      "location": "Princess Margaret Secondary School",
+      "note": "Thursday evenings at Princess Margaret"
+    },
+    {
+      "day": "Thu",
+      "time": "08:15 pm",
+      "location": "Coyote Creek Elementary School",
+      "note": "Thursday late evenings at Coyote Creek"
+    },
+    {
+      "day": "Fri",
+      "time": "11:00 am",
+      "location": "Chuck Bailey Recreation Centre",
+      "note": "Friday mornings at Chuck Bailey"
+    },
+    {
+      "day": "Fri",
+      "time": "05:30 pm",
+      "location": "South Surrey Recreation & Arts Centre",
+      "note": "Friday evenings at South Surrey"
+    },
+    {
+      "day": "Fri",
+      "time": "06:30 pm",
+      "location": "Cloverdale Recreation Centre",
+      "note": "Friday evenings at Cloverdale"
+    },
+    {
+      "day": "Sat",
+      "time": "10:00 am",
+      "location": "Fraser Heights Recreation Centre",
+      "note": "Saturday mornings at Fraser Heights"
+    },
+    {
+      "day": "Sat",
+      "time": "06:00 pm",
+      "location": "Guildford Recreation Centre",
+      "note": "Saturday evenings at Guildford"
+    },
+    {
+      "day": "Sun",
+      "time": "08:30 am",
+      "location": "Guildford Recreation Centre",
+      "note": "Sunday early mornings at Guildford"
+    },
+    {
+      "day": "Sun",
+      "time": "10:00 am",
+      "location": "Fraser Heights Recreation Centre",
+      "note": "Sunday mornings at Fraser Heights"
+    },
+    {
+      "day": "Sun",
+      "time": "10:45 am",
+      "location": "Clayton Community Centre",
+      "note": "Sunday mornings at Clayton"
+    },
+    {
+      "day": "Sun",
+      "time": "02:00 pm",
+      "location": "Guildford Recreation Centre",
+      "note": "Sunday afternoons at Guildford"
+    }
+  ],
+  "notes": {
+    "scrapeDate": "2025",
+    "source": "https://cityofsurrey.perfectmind.com/23615/Clients/BookMe4BookingPages/Classes",
+    "filter": "Drop In Badminton - Adult",
+    "registrationPattern": "Based on existing schedules, registration typically opens 2 days before the activity date at specific times (e.g., Friday 6:30 PM for Monday activities)",
+    "locationPriority": {
+      "priority1": "Fraser Heights Recreation Centre",
+      "priority2": "Cloverdale Recreation Centre",
+      "priority3": "Guildford Recreation Centre",
+      "priority4": "Other locations"
+    },
+    "recommendedSchedulesByPriority": [
+      "🥇 PRIORITY 1 - Sunday 10:00 AM Fraser Heights (ADD THIS)",
+      "🥇 PRIORITY 1 - Wednesday 6:15 PM Fraser Heights (already in scheduler)",
+      "🥇 PRIORITY 1 - Saturday 10:00 AM Fraser Heights (already in scheduler)",
+      "🥈 PRIORITY 2 - Friday 6:30 PM Cloverdale (ADD THIS)",
+      "🥈 PRIORITY 2 - Wednesday 9:15 AM Cloverdale (ADD THIS)",
+      "🥈 PRIORITY 2 - Monday 6:30 PM Cloverdale (already in scheduler)",
+      "🥈 PRIORITY 2 - Wednesday 7:45 PM Cloverdale (already in scheduler)",
+      "🥉 PRIORITY 3 - Thursday 7:00 PM Guildford (ADD THIS)",
+      "🥉 PRIORITY 3 - Saturday 6:00 PM Guildford (ADD THIS)",
+      "🥉 PRIORITY 3 - Sunday 8:30 AM Guildford (ADD THIS)",
+      "🥉 PRIORITY 3 - Sunday 2:00 PM Guildford (ADD THIS)",
+      "🥉 PRIORITY 3 - Tuesday 7:00 PM Guildford (already in scheduler)"
+    ]
+  }
+}

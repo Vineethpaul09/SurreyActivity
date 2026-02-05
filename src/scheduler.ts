@@ -5,13 +5,26 @@
  * Runs scheduled cron jobs to automatically book Badminton Adult activities.
  * Starts 2 minutes before release time and polls/refreshes until Register button appears.
  *
+ * Priority: Fraser Heights > Cloverdale > Guildford
+ *
  * Schedule:
- * - Friday 6:15 PM → Book Monday @ Cloverdale
- * - Saturday 6:30 PM → Book Tuesday @ Guildford
- * - Sunday 6:15 PM → Book Wednesday @ Fraser Heights
- * - Monday 7:00 PM → Book Thursday @ Guildford
- * - Wednesday 10:00 AM → Book Saturday @ Fraser Heights
- * - Thursday 10:00 AM → Book Sunday @ Fraser Heights
+ * 🥇 Fraser Heights (Priority 1):
+ *   - Sunday 6:15 PM → Book Wednesday 6:15 PM @ Fraser Heights
+ *   - Wednesday 10:00 AM → Book Saturday 10:00 AM @ Fraser Heights
+ *   - Thursday 10:00 AM → Book Sunday 10:00 AM @ Fraser Heights
+ *
+ * 🥈 Cloverdale (Priority 2):
+ *   - Friday 6:30 PM → Book Monday 6:30 PM @ Cloverdale
+ *   - Wednesday 7:45 PM → Book Wednesday 7:45 PM @ Cloverdale (same day)
+ *   - Tuesday 6:30 PM → Book Friday 6:30 PM @ Cloverdale
+ *   - Wednesday 9:15 AM → Book Wednesday 9:15 AM @ Cloverdale (same day)
+ *
+ * 🥉 Guildford (Priority 3):
+ *   - Saturday 7:00 PM → Book Tuesday 7:00 PM @ Guildford
+ *   - Monday 7:00 PM → Book Thursday 7:00 PM @ Guildford
+ *   - Wednesday 6:00 PM → Book Saturday 6:00 PM @ Guildford
+ *   - Thursday 8:30 AM → Book Sunday 8:30 AM @ Guildford
+ *   - Thursday 2:00 PM → Book Sunday 2:00 PM @ Guildford
  */
 
 import cron from "node-cron";
@@ -21,6 +34,7 @@ import {
   nextTuesday,
   nextWednesday,
   nextThursday,
+  nextFriday,
   nextSaturday,
   nextSunday,
   getDay,
@@ -98,32 +112,9 @@ function getNextTargetDate(
 
 const SCHEDULES: ScheduleConfig[] = [
   // ============ BADMINTON SCHEDULES ============
+  // 🥇 PRIORITY 1: Fraser Heights
   {
-    id: "friday-monday-cloverdale",
-    activity: ACTIVITY,
-    cronExpression: "28 18 * * 5", // Friday at 6:13 PM (2 min before 6:15 PM release)
-    cronDay: 5, // Friday
-    releaseHour: 18,
-    releaseMinute: 30,
-    targetDay: (d) => nextMonday(d),
-    location: LOCATIONS.CLOVERDALE,
-    time: "6:30 am",
-    description: "Friday 6:30 PM → Book Monday @ Cloverdale",
-  },
-  {
-    id: "saturday-tuesday-guildford",
-    activity: ACTIVITY,
-    cronExpression: "58 18 * * 6",
-    cronDay: 6, // Saturday
-    releaseHour: 19,
-    releaseMinute: 0,
-    targetDay: (d) => nextTuesday(d),
-    location: LOCATIONS.GUILDFORD,
-    time: "7:00 PM",
-    description: "Saturday 7:00 PM → Book Tuesday @ Guildford",
-  },
-  {
-    id: "sunday-wednesday-fraser",
+    id: "sunday-wednesday-fraser-badminton",
     activity: ACTIVITY,
     cronExpression: "13 18 * * 0", // Sunday at 6:13 PM (2 min before 6:15 PM release)
     cronDay: 0, // Sunday
@@ -131,23 +122,11 @@ const SCHEDULES: ScheduleConfig[] = [
     releaseMinute: 15,
     targetDay: (d) => nextWednesday(d),
     location: LOCATIONS.FRASER_HEIGHTS,
-    time: "6:15 am",
-    description: "Sunday 6:15 PM → Book Wednesday @ Fraser Heights",
+    time: "6:15 pm",
+    description: "Sunday 6:15 PM → Book Wednesday 6:15 PM @ Fraser Heights",
   },
   {
-    id: "monday-thursday-guildford",
-    activity: ACTIVITY,
-    cronExpression: "58 18 * * 1", // Monday at 6:58 PM (2 min before 7:00 PM release)
-    cronDay: 1, // Monday
-    releaseHour: 19,
-    releaseMinute: 0,
-    targetDay: (d) => nextThursday(d),
-    location: LOCATIONS.GUILDFORD,
-    time: "7:00 am",
-    description: "Monday 7:00 PM → Book Thursday @ Guildford",
-  },
-  {
-    id: "wednesday-saturday-fraser",
+    id: "wednesday-saturday-fraser-badminton",
     activity: ACTIVITY,
     cronExpression: "58 9 * * 3", // Wednesday at 9:58 AM (2 min before 10:00 AM release)
     cronDay: 3, // Wednesday
@@ -156,10 +135,10 @@ const SCHEDULES: ScheduleConfig[] = [
     targetDay: (d) => nextSaturday(d),
     location: LOCATIONS.FRASER_HEIGHTS,
     time: "10:00 am",
-    description: "Wednesday 10:00 AM → Book Saturday @ Fraser Heights",
+    description: "Wednesday 10:00 AM → Book Saturday 10:00 AM @ Fraser Heights",
   },
   {
-    id: "thursday-sunday-fraser",
+    id: "thursday-sunday-fraser-badminton",
     activity: ACTIVITY,
     cronExpression: "58 9 * * 4", // Thursday at 9:58 AM (2 min before 10:00 AM release)
     cronDay: 4, // Thursday
@@ -168,20 +147,122 @@ const SCHEDULES: ScheduleConfig[] = [
     targetDay: (d) => nextSunday(d),
     location: LOCATIONS.FRASER_HEIGHTS,
     time: "10:00 am",
-    description: "Thursday 10:00 AM → Book Sunday @ Fraser Heights",
+    description: "Thursday 10:00 AM → Book Sunday 10:00 AM @ Fraser Heights",
+  },
+
+  // 🥈 PRIORITY 2: Cloverdale
+  {
+    id: "friday-monday-cloverdale-badminton",
+    activity: ACTIVITY,
+    cronExpression: "28 18 * * 5", // Friday at 6:28 PM (2 min before 6:30 PM release)
+    cronDay: 5, // Friday
+    releaseHour: 18,
+    releaseMinute: 30,
+    targetDay: (d) => nextMonday(d),
+    location: LOCATIONS.CLOVERDALE,
+    time: "6:30 pm",
+    description: "Friday 6:30 PM → Book Monday 6:30 PM @ Cloverdale",
   },
   {
-    id: "wednesday-saturday-guildford",
+    id: "wednesday-wednesday-cloverdale-badminton-evening",
     activity: ACTIVITY,
-    cronExpression: "59 17 * * 3", // Wednesday at 5:58 PM (2 min before 6:00 PM release)
+    cronExpression: "43 19 * * 3", // Wednesday at 7:43 PM (2 min before 7:45 PM release)
+    cronDay: 3, // Wednesday
+    releaseHour: 19,
+    releaseMinute: 45,
+    targetDay: (d) => nextWednesday(d),
+    location: LOCATIONS.CLOVERDALE,
+    time: "7:45 pm",
+    description: "Wednesday 7:45 PM → Book Wednesday 7:45 PM @ Cloverdale",
+  },
+  {
+    id: "tuesday-friday-cloverdale-badminton",
+    activity: ACTIVITY,
+    cronExpression: "28 18 * * 2", // Tuesday at 6:28 PM (2 min before 6:30 PM release)
+    cronDay: 2, // Tuesday
+    releaseHour: 18,
+    releaseMinute: 30,
+    targetDay: (d) => addDays(nextWednesday(d), 2), // Next Friday
+    location: LOCATIONS.CLOVERDALE,
+    time: "6:30 pm",
+    description: "Tuesday 6:30 PM → Book Friday 6:30 PM @ Cloverdale",
+  },
+  {
+    id: "wednesday-wednesday-cloverdale-badminton-morning",
+    activity: ACTIVITY,
+    cronExpression: "13 9 * * 3", // Wednesday at 9:13 AM (2 min before 9:15 AM release)
+    cronDay: 3, // Wednesday
+    releaseHour: 9,
+    releaseMinute: 15,
+    targetDay: (d) => nextWednesday(d),
+    location: LOCATIONS.CLOVERDALE,
+    time: "9:15 am",
+    description: "Wednesday 9:15 AM → Book Wednesday 9:15 AM @ Cloverdale",
+  },
+
+  // 🥉 PRIORITY 3: Guildford
+  {
+    id: "saturday-tuesday-guildford-badminton",
+    activity: ACTIVITY,
+    cronExpression: "58 18 * * 6", // Saturday at 6:58 PM (2 min before 7:00 PM release)
+    cronDay: 6, // Saturday
+    releaseHour: 19,
+    releaseMinute: 0,
+    targetDay: (d) => nextTuesday(d),
+    location: LOCATIONS.GUILDFORD,
+    time: "7:00 pm",
+    description: "Saturday 7:00 PM → Book Tuesday 7:00 PM @ Guildford",
+  },
+  {
+    id: "monday-thursday-guildford-badminton",
+    activity: ACTIVITY,
+    cronExpression: "58 18 * * 1", // Monday at 6:58 PM (2 min before 7:00 PM release)
+    cronDay: 1, // Monday
+    releaseHour: 19,
+    releaseMinute: 0,
+    targetDay: (d) => nextThursday(d),
+    location: LOCATIONS.GUILDFORD,
+    time: "7:00 pm",
+    description: "Monday 7:00 PM → Book Thursday 7:00 PM @ Guildford",
+  },
+  {
+    id: "wednesday-saturday-guildford-badminton-evening",
+    activity: ACTIVITY,
+    cronExpression: "58 17 * * 3", // Wednesday at 5:58 PM (2 min before 6:00 PM release)
     cronDay: 3, // Wednesday
     releaseHour: 18,
     releaseMinute: 0,
     targetDay: (d) => nextSaturday(d),
     location: LOCATIONS.GUILDFORD,
-    time: "6:30 pm",
-    description: "Wednesday 6:30 PM → Book Saturday @ Guildford",
+    time: "6:00 pm",
+    description: "Wednesday 6:00 PM → Book Saturday 6:00 PM @ Guildford",
   },
+  {
+    id: "thursday-sunday-guildford-badminton-morning",
+    activity: ACTIVITY,
+    cronExpression: "28 8 * * 4", // Thursday at 8:28 AM (2 min before 8:30 AM release)
+    cronDay: 4, // Thursday
+    releaseHour: 8,
+    releaseMinute: 30,
+    targetDay: (d) => nextSunday(d),
+    location: LOCATIONS.GUILDFORD,
+    time: "8:30 am",
+    description: "Thursday 8:30 AM → Book Sunday 8:30 AM @ Guildford",
+  },
+  {
+    id: "thursday-sunday-guildford-badminton-afternoon",
+    activity: ACTIVITY,
+    cronExpression: "58 13 * * 4", // Thursday at 1:58 PM (2 min before 2:00 PM release)
+    cronDay: 4, // Thursday
+    releaseHour: 14,
+    releaseMinute: 0,
+    targetDay: (d) => nextSunday(d),
+    location: LOCATIONS.GUILDFORD,
+    time: "2:00 pm",
+    description: "Thursday 2:00 PM → Book Sunday 2:00 PM @ Guildford",
+  },
+
+  // ============ BASKETBALL SCHEDULES ============
   {
     id: "wednesday-saturday-fraser-basketball",
     activity: "Drop In Basketball - Adult",

@@ -67,6 +67,11 @@ const LOCATIONS = {
   CLOVERDALE: "Cloverdale Recreation Centre",
   GUILDFORD: "Guildford Recreation Centre",
   FRASER_HEIGHTS: "Fraser Heights Recreation Centre",
+  CHUCK_BAILEY: "Chuck Bailey Recreation Centre",
+  CLAYTON: "Clayton Community Centre",
+  COYOTE_CREEK: "Coyote Creek Elementary School",
+  PRINCESS_MARGARET: "Princess Margaret Secondary School",
+  SOUTH_SURREY: "South Surrey Recreation & Arts Centre",
 };
 
 // Schedule configuration
@@ -260,6 +265,128 @@ const SCHEDULES: ScheduleConfig[] = [
     location: LOCATIONS.GUILDFORD,
     time: "2:00 pm",
     description: "Thursday 2:00 PM → Book Sunday 2:00 PM @ Guildford",
+  },
+
+  // ⚪ PRIORITY 4: Other Locations
+  {
+    id: "saturday-tuesday-chuck-bailey-badminton",
+    activity: ACTIVITY,
+    cronExpression: "28 18 * * 6", // Saturday at 6:28 PM (2 min before 6:30 PM release)
+    cronDay: 6, // Saturday
+    releaseHour: 18,
+    releaseMinute: 30,
+    targetDay: (d) => nextTuesday(d),
+    location: LOCATIONS.CHUCK_BAILEY,
+    time: "6:30 pm",
+    description: "Saturday 6:30 PM → Book Tuesday 6:30 PM @ Chuck Bailey",
+  },
+  {
+    id: "saturday-friday-chuck-bailey-badminton-morning",
+    activity: ACTIVITY,
+    cronExpression: "58 10 * * 6", // Saturday at 10:58 AM (2 min before 11:00 AM release)
+    cronDay: 6, // Saturday
+    releaseHour: 11,
+    releaseMinute: 0,
+    targetDay: (d) => nextFriday(d),
+    location: LOCATIONS.CHUCK_BAILEY,
+    time: "11:00 am",
+    description: "Saturday 11:00 AM → Book Friday 11:00 AM @ Chuck Bailey",
+  },
+  {
+    id: "monday-thursday-clayton-badminton",
+    activity: ACTIVITY,
+    cronExpression: "28 17 * * 1", // Monday at 5:28 PM (2 min before 5:30 PM release)
+    cronDay: 1, // Monday
+    releaseHour: 17,
+    releaseMinute: 30,
+    targetDay: (d) => nextThursday(d),
+    location: LOCATIONS.CLAYTON,
+    time: "5:30 pm",
+    description: "Monday 5:30 PM → Book Thursday 5:30 PM @ Clayton",
+  },
+  {
+    id: "thursday-sunday-clayton-badminton-morning",
+    activity: ACTIVITY,
+    cronExpression: "43 10 * * 4", // Thursday at 10:43 AM (2 min before 10:45 AM release)
+    cronDay: 4, // Thursday
+    releaseHour: 10,
+    releaseMinute: 45,
+    targetDay: (d) => nextSunday(d),
+    location: LOCATIONS.CLAYTON,
+    time: "10:45 am",
+    description: "Thursday 10:45 AM → Book Sunday 10:45 AM @ Clayton",
+  },
+  {
+    id: "monday-thursday-princess-margaret-badminton",
+    activity: ACTIVITY,
+    cronExpression: "28 19 * * 1", // Monday at 7:28 PM (2 min before 7:30 PM release)
+    cronDay: 1, // Monday
+    releaseHour: 19,
+    releaseMinute: 30,
+    targetDay: (d) => nextThursday(d),
+    location: LOCATIONS.PRINCESS_MARGARET,
+    time: "7:30 pm",
+    description: "Monday 7:30 PM → Book Thursday 7:30 PM @ Princess Margaret",
+  },
+  {
+    id: "saturday-tuesday-princess-margaret-badminton",
+    activity: ACTIVITY,
+    cronExpression: "28 19 * * 6", // Saturday at 7:28 PM (2 min before 7:30 PM release)
+    cronDay: 6, // Saturday
+    releaseHour: 19,
+    releaseMinute: 30,
+    targetDay: (d) => nextTuesday(d),
+    location: LOCATIONS.PRINCESS_MARGARET,
+    time: "7:30 pm",
+    description: "Saturday 7:30 PM → Book Tuesday 7:30 PM @ Princess Margaret",
+  },
+  {
+    id: "monday-thursday-coyote-creek-badminton",
+    activity: ACTIVITY,
+    cronExpression: "13 20 * * 1", // Monday at 8:13 PM (2 min before 8:15 PM release)
+    cronDay: 1, // Monday
+    releaseHour: 20,
+    releaseMinute: 15,
+    targetDay: (d) => nextThursday(d),
+    location: LOCATIONS.COYOTE_CREEK,
+    time: "8:15 pm",
+    description: "Monday 8:15 PM → Book Thursday 8:15 PM @ Coyote Creek",
+  },
+  {
+    id: "saturday-tuesday-coyote-creek-badminton",
+    activity: ACTIVITY,
+    cronExpression: "13 20 * * 6", // Saturday at 8:13 PM (2 min before 8:15 PM release)
+    cronDay: 6, // Saturday
+    releaseHour: 20,
+    releaseMinute: 15,
+    targetDay: (d) => nextTuesday(d),
+    location: LOCATIONS.COYOTE_CREEK,
+    time: "8:15 pm",
+    description: "Saturday 8:15 PM → Book Tuesday 8:15 PM @ Coyote Creek",
+  },
+  {
+    id: "saturday-tuesday-south-surrey-badminton",
+    activity: ACTIVITY,
+    cronExpression: "13 19 * * 6", // Saturday at 7:13 PM (2 min before 7:15 PM release)
+    cronDay: 6, // Saturday
+    releaseHour: 19,
+    releaseMinute: 15,
+    targetDay: (d) => nextTuesday(d),
+    location: LOCATIONS.SOUTH_SURREY,
+    time: "7:15 pm",
+    description: "Saturday 7:15 PM → Book Tuesday 7:15 PM @ South Surrey",
+  },
+  {
+    id: "tuesday-friday-south-surrey-badminton",
+    activity: ACTIVITY,
+    cronExpression: "28 17 * * 2", // Tuesday at 5:28 PM (2 min before 5:30 PM release)
+    cronDay: 2, // Tuesday
+    releaseHour: 17,
+    releaseMinute: 30,
+    targetDay: (d) => nextFriday(d),
+    location: LOCATIONS.SOUTH_SURREY,
+    time: "5:30 pm",
+    description: "Tuesday 5:30 PM → Book Friday 5:30 PM @ South Surrey",
   },
 
   // ============ BASKETBALL SCHEDULES ============

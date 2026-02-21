@@ -58,6 +58,28 @@ export class SurreyBookingAutomation {
       );
     }
 
+    // Memory-saving Chromium args for low-RAM devices (e.g., Raspberry Pi 3 with 1GB)
+    if (process.env.LOW_MEMORY_MODE === "true") {
+      launchOptions.args = [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-gpu",
+        "--disable-software-rasterizer",
+        "--disable-extensions",
+        "--disable-background-networking",
+        "--disable-default-apps",
+        "--disable-sync",
+        "--disable-translate",
+        "--no-first-run",
+        "--no-zygote",
+        "--single-process",
+        "--disable-features=site-per-process",
+        "--js-flags=--max-old-space-size=128",
+      ];
+      log.info("Low-memory mode enabled (Raspberry Pi 3 optimizations)");
+    }
+
     this.browser = await chromium.launch(launchOptions);
 
     this.context = await this.browser.newContext({

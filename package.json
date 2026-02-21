@@ -6,9 +6,24 @@
   "scripts": {
     "build": "tsc",
     "start": "ts-node src/cli.ts",
+    "start:prod": "node dist/scheduler.js start",
+    "list:prod": "node dist/scheduler.js list",
     "book": "ts-node src/cli.ts book --",
     "book:all": "ts-node src/cli.ts book-all",
-    "test": "ts-node src/cli.ts test-login"
+    "book:prod": "node dist/cli.js book --",
+    "test": "ts-node src/cli.ts test-login",
+    "deploy:build": "npm run build && echo Build complete — deploy dist/ to Pi",
+    "pi": "powershell -ExecutionPolicy Bypass -File scripts/pi.ps1",
+    "pi:status": "powershell -ExecutionPolicy Bypass -File scripts/pi.ps1 status",
+    "pi:logs": "powershell -ExecutionPolicy Bypass -File scripts/pi.ps1 logs",
+    "pi:logs-live": "powershell -ExecutionPolicy Bypass -File scripts/pi.ps1 logs-live",
+    "pi:start": "powershell -ExecutionPolicy Bypass -File scripts/pi.ps1 start",
+    "pi:stop": "powershell -ExecutionPolicy Bypass -File scripts/pi.ps1 stop",
+    "pi:restart": "powershell -ExecutionPolicy Bypass -File scripts/pi.ps1 restart",
+    "pi:deploy": "powershell -ExecutionPolicy Bypass -File scripts/pi.ps1 deploy",
+    "pi:test": "powershell -ExecutionPolicy Bypass -File scripts/pi.ps1 test",
+    "pi:info": "powershell -ExecutionPolicy Bypass -File scripts/pi.ps1 info",
+    "pi:ssh": "powershell -ExecutionPolicy Bypass -File scripts/pi.ps1 ssh"
   },
   "keywords": [
     "surrey",

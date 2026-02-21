@@ -13,13 +13,14 @@ WorkingDirectory=/home/pi/SurreyActivity
 Environment=NODE_ENV=production
 Environment=TZ=America/Vancouver
 Environment=PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
-Environment=NODE_OPTIONS=--max-old-space-size=512
-Environment=HEADLESS=true
-Environment=DISPLAY=
+Environment=NODE_OPTIONS=--max-old-space-size=256
+Environment=HEADLESS=false
+Environment=LOW_MEMORY_MODE=true
+Environment=DISPLAY=:0
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-# Start command
-ExecStart=/usr/bin/npx ts-node src/scheduler.ts start
+# Start command (runs pre-compiled JS — no ts-node needed)
+ExecStart=/usr/local/bin/node dist/scheduler.js start
 
 # Restart policy — always restart, wait 30s between restarts
 Restart=always

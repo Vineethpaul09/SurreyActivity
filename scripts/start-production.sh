@@ -16,11 +16,15 @@ export PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH="${PLAYWRIGHT_CHROMIUM_EXECUTABLE_PAT
 # Set timezone to Pacific
 export TZ=America/Vancouver
 
-# Set Node.js memory limit (adjust based on Pi RAM: 512 for 2GB, 1024 for 4GB)
-export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=512}"
+# Set Node.js memory limit
+# Pi 3 (1GB RAM): use 256m | Pi 4 (2GB): use 512m | Pi 4 (4GB+): use 1024m
+export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=256}"
 
 # Force headless mode
 export HEADLESS=true
+
+# Enable low-memory Chromium optimizations (essential for Pi 3 with 1GB RAM)
+export LOW_MEMORY_MODE="${LOW_MEMORY_MODE:-true}"
 
 echo "=== Surrey Activity Booking Scheduler ==="
 echo "Working directory: $APP_DIR"
@@ -29,5 +33,5 @@ echo "Timezone: $TZ"
 echo "Node options: $NODE_OPTIONS"
 echo "=========================================="
 
-# Start the scheduler
-exec npx ts-node src/scheduler.ts start
+# Start the scheduler (pre-compiled JS — no ts-node needed)
+exec node dist/scheduler.js start

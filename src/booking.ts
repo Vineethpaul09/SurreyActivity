@@ -44,10 +44,21 @@ export class SurreyBookingAutomation {
     const log = getLogger();
     log.info("Initializing browser...");
 
-    this.browser = await chromium.launch({
+    const launchOptions: Record<string, unknown> = {
       headless: this.envConfig.headless,
       slowMo: this.envConfig.slowMo,
-    });
+    };
+
+    // Support system Chromium on ARM (Raspberry Pi)
+    if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) {
+      launchOptions.executablePath =
+        process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
+      log.info(
+        `Using system Chromium: ${process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}`,
+      );
+    }
+
+    this.browser = await chromium.launch(launchOptions);
 
     this.context = await this.browser.newContext({
       viewport: { width: 1280, height: 800 },
@@ -58,6 +69,64 @@ export class SurreyBookingAutomation {
     this.page.setDefaultNavigationTimeout(this.envConfig.navigationTimeout);
 
     log.info("Browser initialized successfully");
+  }
+
+  private getNavigationTimeoutMs(): number {
+    return Math.max(this.envConfig.navigationTimeout, 15000);
+  }
+
+  private async safeGoto(url: string, context: string): Promise<void> {
+    if (!this.page) throw new Error("Browser not initialized");
+    const log = getLogger();
+    const timeoutMs = this.getNavigationTimeoutMs();
+    const maxAttempts = 2;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        await this.page.goto(url, {
+          waitUntil: "domcontentloaded",
+          timeout: timeoutMs,
+        });
+
+        try {
+          await this.page.waitForLoadState("networkidle", { timeout: 5000 });
+        } catch {
+          log.warn(
+            `${context}: Network idle wait timed out; continuing with DOM ready.`,
+          );
+        }
+
+        return;
+      } catch (error) {
+        log.warn(
+          `${context}: Navigation attempt ${attempt}/${maxAttempts} failed: ${(error as Error).message}`,
+        );
+        if (attempt < maxAttempts) {
+          await this.page.waitForTimeout(1000 * attempt);
+        } else {
+          throw error;
+        }
+      }
+    }
+  }
+
+  private async safeReload(context: string): Promise<void> {
+    if (!this.page) throw new Error("Browser not initialized");
+    const log = getLogger();
+    const timeoutMs = this.getNavigationTimeoutMs();
+
+    await this.page.reload({
+      waitUntil: "domcontentloaded",
+      timeout: timeoutMs,
+    });
+
+    try {
+      await this.page.waitForLoadState("networkidle", { timeout: 5000 });
+    } catch {
+      log.warn(
+        `${context}: Network idle wait timed out after reload; continuing with DOM ready.`,
+      );
+    }
   }
 
   /**
@@ -71,7 +140,7 @@ export class SurreyBookingAutomation {
 
     try {
       // Navigate to booking page
-      await this.page.goto(BOOKING_URL, { waitUntil: "networkidle" });
+      await this.safeGoto(BOOKING_URL, "Login: open booking page");
       await this.page.waitForTimeout(1000);
 
       // Check if already logged in by looking for user menu
@@ -174,7 +243,7 @@ export class SurreyBookingAutomation {
       // Navigate back to booking page if needed
       if (!this.page.url().includes("BookMe4BookingPages")) {
         log.info("Navigating back to booking page...");
-        await this.page.goto(BOOKING_URL, { waitUntil: "networkidle" });
+        await this.safeGoto(BOOKING_URL, "Login: return to booking page");
         await this.page.waitForTimeout(3000);
       }
 
@@ -205,7 +274,7 @@ export class SurreyBookingAutomation {
 
     try {
       // Navigate to booking page
-      await this.page.goto(BOOKING_URL, { waitUntil: "networkidle" });
+      await this.safeGoto(BOOKING_URL, "Filters: open booking page");
       await this.page.waitForTimeout(1000);
 
       // Set service/activity filter FIRST (narrows down results)
@@ -859,12 +928,13 @@ export class SurreyBookingAutomation {
 
     // Refresh and find Register button (with retry)
     let registerFound = false;
-    const maxRetries = 2;
+    const maxRetries = 4;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       log.info(
         `🔄 Refresh attempt ${attempt}/${maxRetries} - looking for Register button...`,
       );
+      // await this.safeReload("Phase 2: refresh for Register");
       await this.page.reload({ waitUntil: "networkidle" });
       await this.page.waitForTimeout(1000);
 

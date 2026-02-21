@@ -1,0 +1,41 @@
+[Unit]
+Description=Surrey Activity Booking Scheduler
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/SurreyActivity
+
+# Environment variables
+Environment=NODE_ENV=production
+Environment=TZ=America/Vancouver
+Environment=PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
+Environment=NODE_OPTIONS=--max-old-space-size=512
+Environment=HEADLESS=true
+Environment=DISPLAY=
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# Start command
+ExecStart=/usr/bin/npx ts-node src/scheduler.ts start
+
+# Restart policy — always restart, wait 30s between restarts
+Restart=always
+RestartSec=30
+StartLimitInterval=600
+StartLimitBurst=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=surrey-booking
+
+# Security
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/home/pi/SurreyActivity/logs /home/pi/SurreyActivity/screenshots /tmp
+
+[Install]
+WantedBy=multi-user.target

@@ -260,20 +260,52 @@ export class SurreyBookingAutomation {
 
       // Wait for redirect back to booking page
       log.info("Waiting for login to complete...");
-      await this.page.waitForTimeout(5000);
+
+      // Wait for navigation to settle (Pi 3 can be slow)
+      try {
+        await this.page.waitForLoadState("domcontentloaded", {
+          timeout: this.getNavigationTimeoutMs(),
+        });
+      } catch {
+        log.warn("Load state wait timed out after login, continuing...");
+      }
+      await this.page.waitForTimeout(3000);
 
       // Navigate back to booking page if needed
-      if (!this.page.url().includes("BookMe4BookingPages")) {
-        log.info("Navigating back to booking page...");
+      try {
+        if (!this.page.url().includes("BookMe4BookingPages")) {
+          log.info("Navigating back to booking page...");
+          await this.safeGoto(BOOKING_URL, "Login: return to booking page");
+          await this.page.waitForTimeout(3000);
+        }
+      } catch {
+        log.warn("Navigation check failed, navigating to booking page...");
         await this.safeGoto(BOOKING_URL, "Login: return to booking page");
         await this.page.waitForTimeout(3000);
       }
 
-      // Verify login success
-      const loggedIn = await this.page.$("text=Paul Vineeth");
-      if (loggedIn) {
-        logSuccess("Login successful");
-        return true;
+      // Verify login success (retry a few times for slow devices)
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const loggedIn = await this.page.$("text=Paul Vineeth");
+          if (loggedIn) {
+            logSuccess("Login successful");
+            return true;
+          }
+          // Also check for any logged-in indicator (user menu, account link, etc.)
+          const altLoggedIn = await this.page.$(
+            '[class*="user"], [class*="account"], [class*="profile"], text=My Account',
+          );
+          if (altLoggedIn) {
+            logSuccess("Login successful (alt check)");
+            return true;
+          }
+        } catch {
+          log.warn(`Login verify attempt ${attempt + 1} failed, retrying...`);
+        }
+        if (attempt < 2) {
+          await this.page.waitForTimeout(2000);
+        }
       }
 
       logError("Login verification failed");
@@ -704,10 +736,18 @@ export class SurreyBookingAutomation {
       // Click Next link to proceed to Fees & Extras
       log.info("Clicking Next to proceed to Fees & Extras...");
 
+      const navTimeout = this.getNavigationTimeoutMs();
       const nextLink1 = this.page.getByRole("link", { name: "Next" });
       if (await nextLink1.isVisible({ timeout: 5000 })) {
-        await nextLink1.click();
-        await this.page.waitForTimeout(3000);
+        await Promise.all([
+          this.page.waitForNavigation({
+            timeout: navTimeout,
+            waitUntil: "domcontentloaded",
+          }),
+          nextLink1.click({ timeout: navTimeout }),
+        ]);
+        await this.page.waitForLoadState("networkidle").catch(() => {});
+        await this.page.waitForTimeout(1000);
       }
 
       // STEP 2: Fees & Extras - Select fee option (Rec Surrey Pass = Free is usually auto-selected)
@@ -741,8 +781,15 @@ export class SurreyBookingAutomation {
       log.info("Clicking Next to proceed to Payment...");
       const nextLink2 = this.page.getByRole("link", { name: "Next" });
       if (await nextLink2.isVisible({ timeout: 5000 })) {
-        await nextLink2.click();
-        await this.page.waitForTimeout(4000);
+        await Promise.all([
+          this.page.waitForNavigation({
+            timeout: navTimeout,
+            waitUntil: "domcontentloaded",
+          }),
+          nextLink2.click({ timeout: navTimeout }),
+        ]);
+        await this.page.waitForLoadState("networkidle").catch(() => {});
+        await this.page.waitForTimeout(1000);
       }
 
       // STEP 3: Payment/Cart - Place Order
@@ -948,25 +995,61 @@ export class SurreyBookingAutomation {
     // Wait until release time
     await this.waitUntilReleaseTime(releaseHour, releaseMinute);
 
-    // Refresh and find Register button (with retry)
+    // Refresh and find Register button (with retry using response interception)
     let registerFound = false;
-    const maxRetries = 4;
+    const maxRetries = 6;
+    const registerSelector =
+      'input[type="button"][value="Register"], button:has-text("Register")';
+    const registerLinkSelector =
+      'a[href*="BookMe4EventParticipants"]:has-text("Register")';
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       log.info(
         `🔄 Refresh attempt ${attempt}/${maxRetries} - looking for Register button...`,
       );
-      // await this.safeReload("Phase 2: refresh for Register");
-      await this.page.reload({ waitUntil: "networkidle" });
-      await this.page.waitForTimeout(1000);
+
+      try {
+        // Use response interception instead of timeout-based waitUntil.
+        // We listen for the document (HTML) response from the server, which
+        // tells us the page data has arrived — no guessing with networkidle.
+        const responsePromise = this.page.waitForResponse(
+          (resp) =>
+            resp.url().includes(this.page!.url().split("?")[0]) &&
+            resp.status() === 200 &&
+            (resp.request().resourceType() === "document" ||
+              resp.headers()["content-type"]?.includes("text/html")),
+          { timeout: 20000 },
+        );
+
+        // Kick off the reload without waiting for any load state
+        this.page.reload().catch(() => {
+          /* reload promise rejection handled via responsePromise timeout */
+        });
+
+        // Wait for the server to respond with the HTML document
+        const response = await responsePromise;
+        log.info(
+          `📡 Attempt ${attempt}: Server responded with status ${response.status()}`,
+        );
+
+        // Now wait for DOM to be ready (HTML is parsed)
+        await this.page.waitForLoadState("domcontentloaded", {
+          timeout: 10000,
+        });
+      } catch (interceptErr) {
+        log.warn(
+          `Attempt ${attempt}: Response intercept/DOM failed: ${(interceptErr as Error).message}`,
+        );
+        // Fall back: just wait a bit and check the DOM anyway
+        await this.page.waitForTimeout(2000);
+      }
+
+      // Small pause for any client-side JS rendering
+      await this.page.waitForTimeout(500);
 
       // Look for Register button or link
-      const registerBtn = await this.page.$(
-        'input[type="button"][value="Register"], button:has-text("Register")',
-      );
-      const registerLink = await this.page.$(
-        'a[href*="BookMe4EventParticipants"]:has-text("Register")',
-      );
+      const registerBtn = await this.page.$(registerSelector);
+      const registerLink = await this.page.$(registerLinkSelector);
 
       if (registerBtn || registerLink) {
         log.info(`✅ Register button/link found on attempt ${attempt}!`);
@@ -986,8 +1069,9 @@ export class SurreyBookingAutomation {
       } else {
         log.warn(`Register button not found on attempt ${attempt}`);
         if (attempt < maxRetries) {
-          log.info("Waiting 1 second before retry...");
-          await this.page.waitForTimeout(1000);
+          const delay = attempt <= 2 ? 1000 : 2000;
+          log.info(`Waiting ${delay}ms before retry...`);
+          await this.page.waitForTimeout(delay);
         }
       }
     }

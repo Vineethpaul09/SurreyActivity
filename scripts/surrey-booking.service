@@ -17,6 +17,7 @@ Environment=NODE_OPTIONS=--max-old-space-size=256
 Environment=HEADLESS=false
 Environment=LOW_MEMORY_MODE=true
 Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/pi/.Xauthority
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 # Start command (runs pre-compiled JS — no ts-node needed)
@@ -35,7 +36,7 @@ SyslogIdentifier=surrey-booking
 
 # Security
 NoNewPrivileges=true
-ProtectSystem=strict
+ProtectSystem=false
 ReadWritePaths=/home/pi/SurreyActivity/logs /home/pi/SurreyActivity/screenshots /tmp
 
 [Install]

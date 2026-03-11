@@ -23,7 +23,14 @@
     "pi:deploy": "powershell -ExecutionPolicy Bypass -File scripts/pi.ps1 deploy",
     "pi:test": "powershell -ExecutionPolicy Bypass -File scripts/pi.ps1 test",
     "pi:info": "powershell -ExecutionPolicy Bypass -File scripts/pi.ps1 info",
-    "pi:ssh": "powershell -ExecutionPolicy Bypass -File scripts/pi.ps1 ssh"
+    "pi:ssh": "powershell -ExecutionPolicy Bypass -File scripts/pi.ps1 ssh",
+    "scheduler:install": "powershell -ExecutionPolicy Bypass -File scripts/setup-windows-task.ps1 install",
+    "scheduler:uninstall": "powershell -ExecutionPolicy Bypass -File scripts/setup-windows-task.ps1 uninstall",
+    "scheduler:start": "powershell -ExecutionPolicy Bypass -File scripts/setup-windows-task.ps1 start",
+    "scheduler:stop": "powershell -ExecutionPolicy Bypass -File scripts/setup-windows-task.ps1 stop",
+    "scheduler:status": "powershell -ExecutionPolicy Bypass -File scripts/setup-windows-task.ps1 status",
+    "scheduler:logs": "powershell -ExecutionPolicy Bypass -File scripts/setup-windows-task.ps1 logs",
+    "scheduler:build": "powershell -ExecutionPolicy Bypass -File scripts/setup-windows-task.ps1 build"
   },
   "keywords": [
     "surrey",

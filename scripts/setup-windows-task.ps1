@@ -39,6 +39,7 @@ $TaskName        = "SurreyActivityBookingScheduler"
 $TaskDescription = "Runs the Surrey Activity Booking Scheduler (node-cron) to automatically book badminton slots."
 $ProjectDir      = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $BatchFile       = Join-Path $ProjectDir "scripts\run-scheduler.bat"
+$HiddenLauncher  = Join-Path $ProjectDir "scripts\run-scheduler-hidden.vbs"
 $LogDir          = Join-Path $ProjectDir "logs"
 
 # ─── Helpers ─────────────────────────────────────────────────────────────
@@ -82,16 +83,17 @@ switch ($Action) {
             Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
         }
 
-        # Create the task action — run the batch file hidden
+        # Create the task action - run via VBS wrapper so there's NO visible CMD window
         $taskAction = New-ScheduledTaskAction `
-            -Execute "cmd.exe" `
-            -Argument "/c `"$BatchFile`"" `
+            -Execute "wscript.exe" `
+            -Argument "`"$HiddenLauncher`"" `
             -WorkingDirectory $ProjectDir
 
-        # Trigger: At user logon
+        # Triggers: At user logon AND at system startup (covers restart/power-on)
         $triggerLogon = New-ScheduledTaskTrigger -AtLogOn
+        $triggerStartup = New-ScheduledTaskTrigger -AtStartup
 
-        # Settings
+        # Settings - ensure it works on battery (laptops) and survives sleep/hibernate
         $settings = New-ScheduledTaskSettingsSet `
             -AllowStartIfOnBatteries `
             -DontStopIfGoingOnBatteries `
@@ -104,12 +106,12 @@ switch ($Action) {
         # Hide the console window
         $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited
 
-        # Register the task
+        # Register the task with BOTH triggers
         Register-ScheduledTask `
             -TaskName $TaskName `
             -Description $TaskDescription `
             -Action $taskAction `
-            -Trigger $triggerLogon `
+            -Trigger @($triggerLogon, $triggerStartup) `
             -Settings $settings `
             -Principal $principal `
             -Force | Out-Null
@@ -121,8 +123,9 @@ switch ($Action) {
             Write-Host "  Task '$TaskName' installed successfully!" -ForegroundColor Green
             Write-Host ""
             Write-Host "  The scheduler will:" -ForegroundColor White
-            Write-Host "    - Start automatically when you log in" -ForegroundColor Gray
-            Write-Host "    - Run in headless mode (no browser window)" -ForegroundColor Gray
+            Write-Host "    - Start automatically on login AND on system startup/restart" -ForegroundColor Gray
+            Write-Host "    - Run in headless mode (no browser window, no CMD window)" -ForegroundColor Gray
+            Write-Host "    - Keep running on battery power (laptop-safe)" -ForegroundColor Gray
             Write-Host "    - Auto-restart up to 3 times if it crashes" -ForegroundColor Gray
             Write-Host "    - Log output to: $LogDir" -ForegroundColor Gray
             Write-Host ""
@@ -148,7 +151,7 @@ switch ($Action) {
             Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
             Write-Host "  Task '$TaskName' removed." -ForegroundColor Green
         } else {
-            Write-Host "  Task '$TaskName' not found — nothing to remove." -ForegroundColor Yellow
+            Write-Host "  Task '$TaskName' not found - nothing to remove." -ForegroundColor Yellow
         }
     }
 
@@ -227,7 +230,7 @@ switch ($Action) {
                 Sort-Object LastWriteTime -Descending | Select-Object -First 1
             if ($latestLog) {
                 $sizeStr = '{0:N0}' -f $latestLog.Length
-                Write-Host "  Latest Log:      $($latestLog.Name) ($sizeStr bytes)" -ForegroundColor Gray
+                Write-Host "  Latest Log:      $($latestLog.Name) - $sizeStr bytes" -ForegroundColor Gray
             }
         }
     }
@@ -245,10 +248,15 @@ switch ($Action) {
             Sort-Object LastWriteTime -Descending | Select-Object -First 1
 
         if ($latestLog) {
+            # Set console to UTF-8 so emojis and Unicode render correctly
+            [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+            $oldCodePage = [Console]::OutputEncoding
+            chcp 65001 | Out-Null
+
             Write-Host "  File: $($latestLog.FullName)" -ForegroundColor Gray
             Write-Host "  Modified: $($latestLog.LastWriteTime)" -ForegroundColor Gray
             Write-Host ("-" * 60) -ForegroundColor DarkGray
-            Get-Content $latestLog.FullName -Tail 50
+            Get-Content $latestLog.FullName -Tail 50 -Encoding UTF8
         } else {
             Write-Host "  No .log files found in $LogDir" -ForegroundColor Yellow
         }

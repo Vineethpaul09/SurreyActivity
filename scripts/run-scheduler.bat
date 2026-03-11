@@ -6,6 +6,9 @@ REM  It builds the project (if needed), then runs the scheduler
 REM  as a long-running background process using node-cron.
 REM ============================================================
 
+REM Set UTF-8 code page so emojis and Unicode render correctly in logs
+chcp 65001 >nul
+
 cd /d "%~dp0.."
 set "PROJECT_DIR=%cd%"
 

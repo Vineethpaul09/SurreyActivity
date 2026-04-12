@@ -45,9 +45,31 @@ import {
 } from "date-fns";
 import { toZonedTime, fromZonedTime } from "date-fns-tz";
 import { loadEnvConfig, loadBookingConfig } from "./config";
-import { initializeLogger, getLogger, logSuccess, logError } from "./logger";
+import {
+  initializeLogger,
+  getLogger,
+  logSuccess,
+  logError,
+  cleanupOldScreenshots,
+  cleanupOldLogs,
+} from "./logger";
 import { SurreyBookingAutomation } from "./booking";
 import { BookingParams } from "./types";
+import {
+  preventSleep,
+  allowSleep,
+  isSleepPrevented,
+  setupSleepCleanup,
+} from "./sleep-prevention";
+
+// How many minutes before a booking to prevent sleep
+const SLEEP_PREVENTION_WINDOW_MS = 10 * 60 * 1000;
+// Max time after release to attempt recovery for missed bookings
+const MISSED_BOOKING_RECOVERY_MS = 15 * 60 * 1000;
+// Whether a booking is currently in progress (prevents disabling sleep)
+let bookingInProgress = false;
+// Real wall-clock time of last interval check (for sleep gap detection)
+let lastCheckRealTime = Date.now();
 
 // Pacific Time Zone (Vancouver/Surrey)
 const TIMEZONE = "America/Vancouver";
@@ -445,6 +467,13 @@ async function executeBooking(schedule: ScheduleConfig): Promise<void> {
     preferWaitlist: false,
   };
 
+  // Ensure system stays awake during the entire booking process
+  bookingInProgress = true;
+  if (!isSleepPrevented()) {
+    log.info("🛡️ Preventing sleep for active booking...");
+    preventSleep();
+  }
+
   try {
     // Use phased booking for scheduled bookings (not test-only)
     // This starts immediately, completes login/navigation during buffer time,
@@ -482,6 +511,17 @@ async function executeBooking(schedule: ScheduleConfig): Promise<void> {
     }
   } catch (error) {
     logError(`Booking error: ${(error as Error).message}`);
+  } finally {
+    bookingInProgress = false;
+
+    // Release sleep prevention if no upcoming booking within the window
+    const nowAfter = getNowPST();
+    if (
+      !hasUpcomingBooking(nowAfter, SLEEP_PREVENTION_WINDOW_MS) &&
+      isSleepPrevented()
+    ) {
+      allowSleep();
+    }
   }
 }
 
@@ -577,10 +617,49 @@ function startScheduler(): void {
   log.info(`✅ Scheduler started (${TIMEZONE}). Press Ctrl+C to stop.`);
   log.info("═".repeat(60));
 
-  // Update status every 30 seconds
-  setInterval(() => {
+  // Set up sleep prevention cleanup on exit
+  setupSleepCleanup();
+
+  // Clean up old logs and screenshots (>30 days) on startup
+  const bookingConfig = loadBookingConfig();
+  cleanupOldLogs(envConfig.logDir, 30);
+  cleanupOldScreenshots(bookingConfig.settings.screenshotDir, 30);
+
+  // Schedule daily cleanup at midnight PST
+  cron.schedule(
+    "0 0 * * *",
+    () => {
+      log.info("Running daily cleanup...");
+      cleanupOldLogs(envConfig.logDir, 30);
+      cleanupOldScreenshots(bookingConfig.settings.screenshotDir, 30);
+    },
+    { timezone: TIMEZONE },
+  );
+
+  // Check if sleep prevention is needed right away
+  manageSleepPrevention(getNowPST());
+
+  // Update status, manage sleep, and detect missed bookings every 30 seconds
+  setInterval(async () => {
+    const realTimeNow = Date.now();
+    const sleepGapMs = realTimeNow - lastCheckRealTime;
+    lastCheckRealTime = realTimeNow;
+
+    const now = getNowPST();
+
+    // Detect sleep/suspend gap (expected ~30s; if >90s we likely slept)
+    if (sleepGapMs > 90_000) {
+      log.info(
+        `⚡ System WAKE detected! (gap: ${Math.round(sleepGapMs / 1000)}s, expected ~30s)`,
+      );
+      await handleMissedBookings(now, sleepGapMs);
+    }
+
+    // Manage sleep prevention based on upcoming bookings
+    manageSleepPrevention(now);
+
     displayNextScheduleStatus(log, dayNames);
-  }, 30000);
+  }, 30_000);
 }
 
 /**
@@ -623,6 +702,109 @@ function displayNextScheduleStatus(
     log.info(
       `${statusIcon} [${timeStr} PST] Next: ${nextSchedule.description} | ⏱️  ${formatTimeRemaining(minTimeUntil)}`,
     );
+  }
+}
+
+/**
+ * Check if any booking is upcoming within the given time window.
+ */
+function hasUpcomingBooking(now: Date, withinMs: number): boolean {
+  for (const schedule of SCHEDULES) {
+    if (schedule.testOnly) continue;
+    const nextTrigger = getNextCronTrigger(schedule, now);
+    const timeUntil = nextTrigger.getTime() - now.getTime();
+    if (timeUntil > 0 && timeUntil <= withinMs) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Enable or disable sleep prevention based on proximity to the next booking.
+ * - Prevents sleep if a booking is within SLEEP_PREVENTION_WINDOW_MS (10 min)
+ * - Allows sleep if no booking is near and no booking is in progress
+ */
+function manageSleepPrevention(now: Date): void {
+  // Never touch sleep state while a booking is actively running
+  if (bookingInProgress) return;
+
+  const upcoming = hasUpcomingBooking(now, SLEEP_PREVENTION_WINDOW_MS);
+
+  if (upcoming && !isSleepPrevented()) {
+    const log = getLogger();
+    log.info(
+      "🛡️ Booking window approaching (< 10 min) — preventing system sleep",
+    );
+    preventSleep();
+  } else if (!upcoming && isSleepPrevented()) {
+    allowSleep();
+  }
+}
+
+/**
+ * Detect and recover from missed bookings after the system wakes from sleep.
+ * Checks if any cron triggers fell within the sleep gap and attempts recovery
+ * if the booking's release time was within the last 15 minutes.
+ */
+async function handleMissedBookings(
+  now: Date,
+  sleepGapMs: number,
+): Promise<void> {
+  const log = getLogger();
+  const sleepStartMs = now.getTime() - sleepGapMs;
+
+  const missedSchedules: ScheduleConfig[] = [];
+
+  for (const schedule of SCHEDULES) {
+    if (schedule.testOnly) continue;
+
+    const currentDay = getDay(now);
+    if (currentDay !== schedule.cronDay) continue;
+
+    // Parse cron expression to get the exact fire time today
+    const cronParts = schedule.cronExpression.split(" ");
+    const cronMin = parseInt(cronParts[0], 10);
+    const cronHour = parseInt(cronParts[1], 10);
+
+    const cronFireTime = setMinutes(setHours(now, cronHour), cronMin);
+    const cronFireMs = cronFireTime.getTime();
+
+    // Was this cron supposed to fire during the sleep gap?
+    if (cronFireMs >= sleepStartMs && cronFireMs <= now.getTime()) {
+      const releaseTime = setMinutes(
+        setHours(now, schedule.releaseHour),
+        schedule.releaseMinute,
+      );
+      const timeSinceRelease = now.getTime() - releaseTime.getTime();
+
+      if (
+        timeSinceRelease >= 0 &&
+        timeSinceRelease <= MISSED_BOOKING_RECOVERY_MS
+      ) {
+        missedSchedules.push(schedule);
+        log.warn(
+          `🔄 MISSED: ${schedule.description} (release was ${Math.round(timeSinceRelease / 60000)} min ago — within recovery window)`,
+        );
+      } else if (timeSinceRelease > MISSED_BOOKING_RECOVERY_MS) {
+        log.warn(
+          `⏰ TOO LATE to recover: ${schedule.description} (release was ${Math.round(timeSinceRelease / 60000)} min ago, max: ${MISSED_BOOKING_RECOVERY_MS / 60000} min)`,
+        );
+      }
+    }
+  }
+
+  // Execute missed bookings sequentially
+  for (const schedule of missedSchedules) {
+    log.info(`🚨 RECOVERY ATTEMPT: ${schedule.description}`);
+    log.info(
+      "   If browser opens (headed mode), you can manually complete the booking if automation fails.",
+    );
+    await executeBooking(schedule);
+  }
+
+  if (missedSchedules.length === 0) {
+    log.info("   No bookings were missed during sleep.");
   }
 }
 

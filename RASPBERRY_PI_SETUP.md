@@ -170,7 +170,7 @@ Set your `.env`:
 ```env
 SURREY_EMAIL=your-actual-email@example.com
 SURREY_PASSWORD=your-actual-password
-HEADLESS=true
+HEADLESS=false
 SLOW_MO=100
 NAVIGATION_TIMEOUT=30000
 ACTION_TIMEOUT=10000

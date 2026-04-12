@@ -17,7 +17,7 @@ Edit the `.env` file with your credentials:
 ```env
 SURREY_EMAIL=your-email@example.com
 SURREY_PASSWORD=your-password
-HEADLESS=true
+HEADLESS=false
 ```
 
 ### 3. Run a Booking
@@ -165,7 +165,7 @@ For scheduled automation, run in headless mode:
 # Run all bookings in headless mode
 npm run book:all -- --headless
 
-# Or set HEADLESS=true in .env
+# Or set HEADLESS=false in .env
 ```
 
 ## ⚠️ Disclaimer

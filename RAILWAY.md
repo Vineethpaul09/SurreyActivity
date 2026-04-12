@@ -20,7 +20,7 @@
    ```
    SURREY_EMAIL=your-real-email@gmail.com
    SURREY_PASSWORD=your-real-password
-   HEADLESS=true
+   HEADLESS=false
    SLOW_MO=50
    NAVIGATION_TIMEOUT=60000
    ACTION_TIMEOUT=15000
@@ -33,7 +33,7 @@
 
 ## Important Notes
 
-- **HEADLESS=true** is required (no display on Railway)
+- **HEADLESS=false** is required (no display on Railway)
 - **Logs** are visible in Railway dashboard (LOG_TO_FILE=false recommended)
 - **Timezone** is set to Vancouver/Pacific in Dockerfile
 - **Scheduler runs 24/7** - will trigger at configured cron times

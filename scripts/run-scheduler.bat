@@ -27,7 +27,7 @@ if exist "%PROJECT_DIR%\.env" (
 )
 
 REM Ensure we use headless mode when running from Task Scheduler
-set HEADLESS=true
+set HEADLESS=false
 set LOG_TO_FILE=true
 
 REM Build if dist/scheduler.js is missing or older than src/scheduler.ts

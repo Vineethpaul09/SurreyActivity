@@ -11,9 +11,20 @@ import { BookingConfig, EnvConfig, BookingParams } from "./types";
 dotenv.config();
 
 export function loadEnvConfig(): EnvConfig {
+  const email = process.env.SURREY_EMAIL || "";
+  const password = process.env.SURREY_PASSWORD || "";
+
+  if (!email || !password) {
+    console.error(
+      "FATAL: SURREY_EMAIL and SURREY_PASSWORD environment variables are required.",
+    );
+    console.error("Set them in your .env file or environment before running.");
+    process.exit(1);
+  }
+
   return {
-    email: process.env.SURREY_EMAIL || "",
-    password: process.env.SURREY_PASSWORD || "",
+    email,
+    password,
     headless: process.env.HEADLESS === "true",
     slowMo: parseInt(process.env.SLOW_MO || "100", 10),
     navigationTimeout: parseInt(process.env.NAVIGATION_TIMEOUT || "30000", 10),
@@ -21,6 +32,7 @@ export function loadEnvConfig(): EnvConfig {
     logLevel: process.env.LOG_LEVEL || "info",
     logToFile: process.env.LOG_TO_FILE === "true",
     logDir: process.env.LOG_DIR || "./logs",
+    traceEnabled: process.env.TRACE_ENABLED === "true",
   };
 }
 

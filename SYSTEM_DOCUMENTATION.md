@@ -291,7 +291,7 @@ SURREY_EMAIL=your-email@example.com
 SURREY_PASSWORD=your-password
 
 # Browser Settings
-HEADLESS=true              # true for server, false for debugging
+HEADLESS=false              # true for server, false for debugging
 SLOW_MO=100                # Milliseconds between actions (debugging)
 
 # Timeouts
@@ -430,7 +430,7 @@ npm run book:all -- --headless  # Book in headless mode
    ```
    SURREY_EMAIL=your-email@gmail.com
    SURREY_PASSWORD=your-password
-   HEADLESS=true
+   HEADLESS=false
    SLOW_MO=50
    NAVIGATION_TIMEOUT=60000
    ACTION_TIMEOUT=15000

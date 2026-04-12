@@ -36,6 +36,21 @@ export interface EnvConfig {
   logLevel: string;
   logToFile: boolean;
   logDir: string;
+  traceEnabled: boolean;
+}
+
+export interface TraceEntry {
+  timestamp: string;
+  elapsed: number;
+  type:
+    | "request"
+    | "response"
+    | "action"
+    | "navigation"
+    | "iframe"
+    | "error"
+    | "screenshot";
+  detail: Record<string, unknown>;
 }
 
 export interface BookingResult {

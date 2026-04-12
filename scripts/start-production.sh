@@ -21,7 +21,7 @@ export TZ=America/Vancouver
 export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=256}"
 
 # Force headless mode
-export HEADLESS=true
+export HEADLESS=false
 
 # Enable low-memory Chromium optimizations (essential for Pi 3 with 1GB RAM)
 export LOW_MEMORY_MODE="${LOW_MEMORY_MODE:-true}"

@@ -3,6 +3,7 @@
  */
 
 import winston from "winston";
+import DailyRotateFile from "winston-daily-rotate-file";
 import path from "path";
 import fs from "fs";
 
@@ -18,9 +19,6 @@ export function initializeLogger(
     fs.mkdirSync(logDir, { recursive: true });
   }
 
-  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const logFileName = `booking-${timestamp}.log`;
-
   const transports: winston.transport[] = [
     new winston.transports.Console({
       format: winston.format.combine(
@@ -34,17 +32,22 @@ export function initializeLogger(
   ];
 
   if (logToFile) {
-    transports.push(
-      new winston.transports.File({
-        filename: path.join(logDir, logFileName),
-        format: winston.format.combine(
-          winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
-          winston.format.printf(({ level, message, timestamp }) => {
-            return `[${timestamp}] ${level.toUpperCase()}: ${message}`;
-          }),
-        ),
-      }),
-    );
+    // Daily rotation: one log file per day, auto-delete after 30 days
+    const dailyRotateTransport = new DailyRotateFile({
+      dirname: logDir,
+      filename: "booking-%DATE%.log",
+      datePattern: "YYYY-MM-DD",
+      maxFiles: "30d",
+      maxSize: "20m",
+      format: winston.format.combine(
+        winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
+        winston.format.printf(({ level, message, timestamp }) => {
+          return `[${timestamp}] ${level.toUpperCase()}: ${message}`;
+        }),
+      ),
+    });
+
+    transports.push(dailyRotateTransport);
   }
 
   logger = winston.createLogger({
@@ -103,4 +106,69 @@ export function logStep(step: number, message: string): void {
 export function logWarning(message: string): void {
   const log = getLogger();
   log.warn(`⚠️  ${message}`);
+}
+
+/**
+ * Delete screenshots older than the specified number of days.
+ */
+export function cleanupOldScreenshots(
+  screenshotDir: string,
+  maxAgeDays: number = 30,
+): void {
+  const log = getLogger();
+  if (!fs.existsSync(screenshotDir)) return;
+
+  const cutoff = Date.now() - maxAgeDays * 24 * 60 * 60 * 1000;
+  let deleted = 0;
+
+  try {
+    const files = fs.readdirSync(screenshotDir);
+    for (const file of files) {
+      if (!file.endsWith(".png")) continue;
+      const filePath = path.join(screenshotDir, file);
+      const stat = fs.statSync(filePath);
+      if (stat.mtimeMs < cutoff) {
+        fs.unlinkSync(filePath);
+        deleted++;
+      }
+    }
+    if (deleted > 0) {
+      log.info(
+        `🧹 Cleaned up ${deleted} screenshot(s) older than ${maxAgeDays} days`,
+      );
+    }
+  } catch (error) {
+    log.warn(`Failed to clean up screenshots: ${(error as Error).message}`);
+  }
+}
+
+/**
+ * Delete old log files not managed by DailyRotateFile (legacy cleanup).
+ */
+export function cleanupOldLogs(logDir: string, maxAgeDays: number = 30): void {
+  const log = getLogger();
+  if (!fs.existsSync(logDir)) return;
+
+  const cutoff = Date.now() - maxAgeDays * 24 * 60 * 60 * 1000;
+  let deleted = 0;
+
+  try {
+    const files = fs.readdirSync(logDir);
+    for (const file of files) {
+      if (!file.endsWith(".log")) continue;
+      const filePath = path.join(logDir, file);
+      const stat = fs.statSync(filePath);
+      if (stat.mtimeMs < cutoff) {
+        fs.unlinkSync(filePath);
+        deleted++;
+      }
+    }
+    if (deleted > 0) {
+      log.info(
+        `🧹 Cleaned up ${deleted} log file(s) older than ${maxAgeDays} days`,
+      );
+    }
+  } catch (error) {
+    log.warn(`Failed to clean up logs: ${(error as Error).message}`);
+  }
 }

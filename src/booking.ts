@@ -31,10 +31,25 @@ export class SurreyBookingAutomation {
   private page: Page | null = null;
   private envConfig: EnvConfig;
   private settings: BookingSettings;
+  private traceLog: import("./types").TraceEntry[] = [];
+  private traceStartTime: number = 0;
 
   constructor(envConfig: EnvConfig, settings: BookingSettings) {
     this.envConfig = envConfig;
     this.settings = settings;
+  }
+
+  private trace(
+    type: import("./types").TraceEntry["type"],
+    detail: Record<string, unknown>,
+  ): void {
+    if (!this.envConfig.traceEnabled) return;
+    this.traceLog.push({
+      timestamp: new Date().toISOString(),
+      elapsed: Date.now() - this.traceStartTime,
+      type,
+      detail,
+    });
   }
 
   /**
@@ -89,6 +104,49 @@ export class SurreyBookingAutomation {
     this.page = await this.context.newPage();
     this.page.setDefaultTimeout(this.envConfig.actionTimeout);
     this.page.setDefaultNavigationTimeout(this.envConfig.navigationTimeout);
+
+    // Register network trace listeners when trace mode is enabled
+    if (this.envConfig.traceEnabled) {
+      this.traceStartTime = Date.now();
+      this.traceLog = [];
+      this.trace("action", { action: "browser_initialized" });
+
+      this.page.on("request", (request) => {
+        this.trace("request", {
+          method: request.method(),
+          url: request.url(),
+          resourceType: request.resourceType(),
+          headers: request.headers(),
+        });
+      });
+
+      this.page.on("response", (response) => {
+        this.trace("response", {
+          status: response.status(),
+          url: response.url(),
+          statusText: response.statusText(),
+          headers: response.headers(),
+        });
+      });
+
+      this.page.on("framenavigated", (frame) => {
+        this.trace("navigation", {
+          url: frame.url(),
+          name: frame.name(),
+          isMain: frame === this.page?.mainFrame(),
+        });
+      });
+
+      this.page.on("requestfailed", (request) => {
+        this.trace("error", {
+          url: request.url(),
+          method: request.method(),
+          failure: request.failure()?.errorText || "unknown",
+        });
+      });
+
+      log.info("Trace mode ENABLED - capturing all network calls and actions");
+    }
 
     log.info("Browser initialized successfully");
   }
@@ -157,6 +215,7 @@ export class SurreyBookingAutomation {
   async login(): Promise<boolean> {
     const log = getLogger();
     logStep(1, "Logging in to Surrey booking system...");
+    this.trace("action", { action: "login_start" });
 
     if (!this.page) throw new Error("Browser not initialized");
 
@@ -166,7 +225,13 @@ export class SurreyBookingAutomation {
       await this.page.waitForTimeout(1000);
 
       // Check if already logged in by looking for user menu
-      const userMenu = await this.page.$("text=Paul Vineeth");
+      const userDisplayName = this.envConfig.email.split("@")[0];
+      const userMenu =
+        (await this.page.$(`text=${userDisplayName}`)) ||
+        (await this.page.$('[class*="user"]')) ||
+        (await this.page.$('[class*="account"]')) ||
+        (await this.page.$("text=My Account")) ||
+        (await this.page.$("text=Sign Out"));
       if (userMenu) {
         logSuccess("Already logged in");
         return true;
@@ -287,15 +352,37 @@ export class SurreyBookingAutomation {
       // Verify login success (retry a few times for slow devices)
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
-          const loggedIn = await this.page.$("text=Paul Vineeth");
+          // Check for login error messages first
+          const errorSelectors = [
+            "text=Invalid username or password",
+            "text=Account is locked",
+            "text=Too many attempts",
+            "text=Account has been locked",
+            "text=incorrect password",
+            ".validation-summary-errors",
+            ".error-message",
+          ];
+          for (const errSel of errorSelectors) {
+            const errEl = await this.page.$(errSel);
+            if (errEl) {
+              const errText = await errEl.textContent().catch(() => errSel);
+              logError(`Login failed: ${errText}`);
+              return false;
+            }
+          }
+
+          const loggedInName = this.envConfig.email.split("@")[0];
+          const loggedIn = await this.page.$(`text=${loggedInName}`);
           if (loggedIn) {
             logSuccess("Login successful");
             return true;
           }
           // Also check for any logged-in indicator (user menu, account link, etc.)
-          const altLoggedIn = await this.page.$(
-            '[class*="user"], [class*="account"], [class*="profile"], text=My Account',
-          );
+          const altLoggedIn =
+            (await this.page.$('[class*="user"]')) ||
+            (await this.page.$('[class*="account"]')) ||
+            (await this.page.$("text=My Account")) ||
+            (await this.page.$("text=Sign Out"));
           if (altLoggedIn) {
             logSuccess("Login successful (alt check)");
             return true;
@@ -323,6 +410,12 @@ export class SurreyBookingAutomation {
   async navigateAndFilter(params: BookingParams): Promise<boolean> {
     const log = getLogger();
     logStep(2, "Navigating to booking page and applying filters...");
+    this.trace("action", {
+      action: "navigate_and_filter_start",
+      activity: params.activity,
+      date: params.date,
+      location: params.location,
+    });
 
     if (!this.page) throw new Error("Browser not initialized");
 
@@ -530,6 +623,11 @@ export class SurreyBookingAutomation {
   async findAndSelectSlot(params: BookingParams): Promise<SlotInfo> {
     const log = getLogger();
     logStep(3, `Finding slot: ${params.time} at ${params.location}...`);
+    this.trace("action", {
+      action: "find_slot_start",
+      time: params.time,
+      location: params.location,
+    });
 
     if (!this.page) throw new Error("Browser not initialized");
 
@@ -688,8 +786,19 @@ export class SurreyBookingAutomation {
   async completeRegistration(): Promise<boolean> {
     const log = getLogger();
     logStep(4, "Completing registration...");
+    this.trace("action", { action: "registration_start" });
 
     if (!this.page) throw new Error("Browser not initialized");
+
+    // 5-minute hold timer starts when we enter registration.
+    // We must keep trying until this expires — NEVER give up early.
+    const HOLD_DURATION_MS = 5 * 60 * 1000; // 5 minutes
+    const holdStartTime = Date.now();
+    const holdDeadline = holdStartTime + HOLD_DURATION_MS;
+
+    const isHoldActive = () => Date.now() < holdDeadline;
+    const holdRemaining = () =>
+      Math.max(0, Math.round((holdDeadline - Date.now()) / 1000));
 
     try {
       // Wait for page to load
@@ -721,12 +830,29 @@ export class SurreyBookingAutomation {
       }
 
       // Verify attendee checkbox is checked (should be auto-selected for logged-in user)
+      // Check for "Already Registered" which means user is already booked for this slot
+      const alreadyRegistered = await this.page.$("text=Already Registered");
+      if (alreadyRegistered) {
+        log.info("User is already registered for this slot — nothing to book");
+        await this.takeScreenshot("already-registered");
+        return true; // Already booked = success
+      }
+
       const attendeeCheckbox = await this.page.$('input[type="checkbox"]');
       if (attendeeCheckbox) {
         const isChecked = await attendeeCheckbox.isChecked();
         if (!isChecked) {
+          // Check if checkbox is enabled before clicking
+          const isDisabled = await attendeeCheckbox
+            .isDisabled()
+            .catch(() => false);
+          if (isDisabled) {
+            log.warn("Attendee checkbox is disabled — cannot select");
+            await this.takeScreenshot("attendee-checkbox-disabled");
+            return false;
+          }
           log.info("Checking attendee checkbox...");
-          await attendeeCheckbox.click();
+          await attendeeCheckbox.click({ timeout: 5000 });
           await this.page.waitForTimeout(500);
         } else {
           log.info("Attendee already selected");
@@ -789,139 +915,273 @@ export class SurreyBookingAutomation {
           nextLink2.click({ timeout: navTimeout }),
         ]);
         await this.page.waitForLoadState("networkidle").catch(() => {});
-        await this.page.waitForTimeout(1000);
       }
 
       // STEP 3: Payment/Cart - Place Order
+      // CRITICAL: The spot is held for 5 minutes. We MUST keep retrying
+      // within that window — never give up until the hold expires.
       logStep(4.3, "Step 3: Placing order...");
+      this.trace("action", { action: "place_order_start" });
 
-      // Wait for cart/checkout page
-      await this.page.waitForTimeout(2000);
-
-      // Take screenshot before placing order
-      await this.takeScreenshot("before-place-order");
-
-      // Look for Place My Order button - multiple possible selectors
       let orderPlaced = false;
+      let bookingConfirmed = false;
+      let placeOrderAttempt = 0;
 
-      // Try 1: Direct button on page
-      let placeOrderBtn = await this.page.$(
-        'button:has-text("Place My Order")',
-      );
-      if (placeOrderBtn && (await placeOrderBtn.isVisible())) {
-        log.info("Found Place My Order button on page");
-        await placeOrderBtn.click();
-        orderPlaced = true;
-      }
-
-      // Try 2: Input button
-      if (!orderPlaced) {
-        placeOrderBtn = await this.page.$(
-          'input[type="button"][value*="Place"], input[type="submit"][value*="Place"]',
+      while (isHoldActive() && !bookingConfirmed) {
+        placeOrderAttempt++;
+        log.info(
+          `Place Order attempt ${placeOrderAttempt} (hold time remaining: ${holdRemaining()}s)...`,
         );
-        if (placeOrderBtn && (await placeOrderBtn.isVisible())) {
-          log.info("Found Place Order input button");
-          await placeOrderBtn.click();
-          orderPlaced = true;
-        }
-      }
 
-      // Try 3: Link styled as button
-      if (!orderPlaced) {
-        const placeOrderLink = await this.page.$(
-          'a:has-text("Place My Order"), a:has-text("Place Order")',
-        );
-        if (placeOrderLink && (await placeOrderLink.isVisible())) {
-          log.info("Found Place Order link");
-          await placeOrderLink.click();
-          orderPlaced = true;
-        }
-      }
+        // ── FIND & CLICK Place Order button ──
+        if (!orderPlaced) {
+          // Search in iframes first (proven path — button is always in cross-origin iframe)
+          log.info("Searching for Place Order button in payment iframe...");
+          const iframeSearchStart = Date.now();
+          const iframeTimeout = Math.min(
+            60000,
+            holdDeadline - Date.now() - 5000,
+          ); // Leave 5s buffer
 
-      // Try 4: Look in iframes
-      if (!orderPlaced) {
-        log.info("Looking for Place Order button in iframes...");
-        const iframes = await this.page.$$("iframe");
+          while (
+            Date.now() - iframeSearchStart < iframeTimeout &&
+            !orderPlaced
+          ) {
+            const iframes = await this.page.$$("iframe");
+            for (const iframe of iframes) {
+              try {
+                const frame = await iframe.contentFrame();
+                if (!frame) continue;
+                try {
+                  await frame.waitForSelector(
+                    'button:has-text("Place My Order"), button:has-text("Place Order")',
+                    { state: "visible", timeout: 3000 },
+                  );
+                  const iframeBtn = await frame.$(
+                    'button:has-text("Place My Order"), button:has-text("Place Order")',
+                  );
+                  if (iframeBtn) {
+                    const isDisabled = await iframeBtn
+                      .isDisabled()
+                      .catch(() => false);
+                    if (isDisabled) {
+                      log.warn(
+                        "Place Order button DISABLED — waiting for it to enable...",
+                      );
+                      this.trace("action", {
+                        action: "button_disabled",
+                        elapsed: Date.now() - iframeSearchStart,
+                      });
+                      continue;
+                    }
+                    const elapsed = Date.now() - iframeSearchStart;
+                    log.info(
+                      `Found Place Order button in iframe (${elapsed}ms)`,
+                    );
+                    this.trace("iframe", {
+                      action: "button_found_in_iframe",
+                      elapsed,
+                    });
+                    await this.takeScreenshot("before-place-order");
+                    await iframeBtn.click();
+                    orderPlaced = true;
+                    break;
+                  }
+                } catch {
+                  // Button not in this iframe yet
+                }
+              } catch {
+                // Skip inaccessible frames
+              }
+            }
+            if (orderPlaced) break;
+            await this.page.waitForTimeout(1000);
+          }
 
-        for (const iframe of iframes) {
-          try {
-            const frame = await iframe.contentFrame();
-            if (frame) {
-              const iframeBtn = await frame.$(
-                'button:has-text("Place My Order"), button:has-text("Place Order")',
-              );
-              if (iframeBtn) {
-                log.info("Found Place Order button in iframe");
-                await iframeBtn.click();
+          // Fallback: check main page
+          if (!orderPlaced) {
+            log.info("Button not in iframes, checking main page...");
+            const mainPageSelectors = [
+              'button:has-text("Place My Order")',
+              'input[type="button"][value*="Place"], input[type="submit"][value*="Place"]',
+              'a:has-text("Place My Order"), a:has-text("Place Order")',
+            ];
+            for (const selector of mainPageSelectors) {
+              const btn = await this.page.$(selector);
+              if (btn && (await btn.isVisible())) {
+                log.info(`Found Place Order on main page: ${selector}`);
+                this.trace("action", {
+                  action: "button_found_main_page",
+                  selector,
+                });
+                await btn.click();
                 orderPlaced = true;
                 break;
               }
             }
-          } catch (e) {
-            // Skip inaccessible frames
+          }
+
+          // Last resort: role-based search
+          if (!orderPlaced) {
+            try {
+              const placeOrderByRole = this.page.getByRole("button", {
+                name: /place.*order/i,
+              });
+              if (await placeOrderByRole.isVisible({ timeout: 3000 })) {
+                log.info("Found Place Order button by role");
+                await placeOrderByRole.click();
+                orderPlaced = true;
+              }
+            } catch {
+              log.info("Place Order button not found by role");
+            }
+          }
+
+          if (!orderPlaced) {
+            log.warn(
+              `Place Order button not found on attempt ${placeOrderAttempt} (hold: ${holdRemaining()}s remaining)`,
+            );
+            this.trace("error", {
+              action: "place_order_button_not_found",
+              attempt: placeOrderAttempt,
+              holdRemaining: holdRemaining(),
+            });
+            await this.takeScreenshot(
+              `place-order-not-found-attempt-${placeOrderAttempt}`,
+            );
+
+            if (isHoldActive()) {
+              log.info("Refreshing page and retrying within hold window...");
+              try {
+                await this.page.reload({
+                  waitUntil: "domcontentloaded",
+                  timeout: 15000,
+                });
+                await this.page.waitForLoadState("networkidle").catch(() => {});
+              } catch {
+                log.warn("Page refresh failed, continuing anyway...");
+              }
+              await this.page.waitForTimeout(2000);
+              continue; // Retry from top of while loop
+            }
           }
         }
-      }
 
-      // Try 5: Use Playwright locator with role
-      if (!orderPlaced) {
-        try {
-          const placeOrderByRole = this.page.getByRole("button", {
-            name: /place.*order/i,
-          });
-          if (await placeOrderByRole.isVisible({ timeout: 3000 })) {
-            log.info("Found Place Order button by role");
-            await placeOrderByRole.click();
-            orderPlaced = true;
+        // ── WAIT FOR POST-CLICK PROCESSING ──
+        if (orderPlaced) {
+          // Wait for navigation to ThankYou page
+          try {
+            await this.page.waitForLoadState("domcontentloaded", {
+              timeout: 15000,
+            });
+          } catch {
+            log.warn(
+              "Page load after Place Order timed out, checking anyway...",
+            );
           }
-        } catch {
-          log.info("Place Order button not found by role");
+
+          // Wait for processing spinner
+          try {
+            const processingSpinner = await this.page.$(
+              "text=Processing transaction",
+            );
+            if (processingSpinner) {
+              log.info("Processing transaction in progress, waiting...");
+              const spinnerTimeout = Math.min(30000, holdDeadline - Date.now());
+              await this.page
+                .waitForSelector("text=Processing transaction", {
+                  state: "hidden",
+                  timeout: spinnerTimeout,
+                })
+                .catch(() => log.warn("Processing spinner did not disappear"));
+            }
+          } catch {
+            // No spinner found, fine
+          }
+          await this.page.waitForTimeout(3000);
+
+          // ── CHECK FOR SERVER ERRORS ──
+          const errorMsg = await this.page.$(
+            "text=An unexpected error occurred",
+          );
+          if (errorMsg) {
+            log.warn(
+              `Server error on attempt ${placeOrderAttempt} (hold: ${holdRemaining()}s remaining) — retrying...`,
+            );
+            await this.takeScreenshot(
+              `place-order-error-attempt-${placeOrderAttempt}`,
+            );
+            orderPlaced = false; // Reset so we re-find and re-click the button
+            await this.page.waitForTimeout(2000);
+
+            if (isHoldActive()) {
+              continue; // Retry from top of while loop
+            }
+          }
+
+          // ── CHECK FOR SUCCESS ──
+          const successIndicators = [
+            "text=Thank you",
+            "text=thank you",
+            "text=Booking Confirmed",
+            "text=Registration Complete",
+            "text=was booked",
+            "text=confirmation has been sent",
+            "text=successfully registered",
+            'h1:has-text("Thank")',
+            ".confirmation-message",
+            '[class*="success"]',
+          ];
+
+          for (const selector of successIndicators) {
+            const element = await this.page.$(selector);
+            if (element) {
+              logSuccess("Registration completed successfully!");
+              this.trace("action", {
+                action: "booking_confirmed",
+                indicator: selector,
+              });
+              await this.takeScreenshot("booking-success");
+              bookingConfirmed = true;
+              break;
+            }
+          }
+
+          if (bookingConfirmed) break;
+
+          // Order was clicked but no confirmation and no error — could be slow.
+          // Keep waiting within the hold window.
+          if (isHoldActive()) {
+            log.info(
+              `No confirmation yet, rechecking... (hold: ${holdRemaining()}s remaining)`,
+            );
+            await this.page.waitForTimeout(3000);
+            continue;
+          }
         }
+
+        // If hold has expired and nothing worked, break
+        if (!isHoldActive()) break;
       }
 
-      if (!orderPlaced) {
-        log.warn("Could not find Place Order button - taking screenshot");
-        await this.takeScreenshot("place-order-button-not-found");
+      // ── FINAL RESULT ──
+      if (bookingConfirmed) {
+        return true;
       }
 
-      // Wait for confirmation page
-      await this.page.waitForTimeout(5000);
-
-      // Verify success - look for confirmation indicators
-      const successIndicators = [
-        "text=Thank you",
-        "text=thank you",
-        "text=Booking Confirmed",
-        "text=Registration Complete",
-        "text=was booked",
-        "text=confirmation has been sent",
-        "text=successfully registered",
-        'h1:has-text("Thank")',
-        ".confirmation-message",
-        '[class*="success"]',
-      ];
-
-      for (const selector of successIndicators) {
-        const element = await this.page.$(selector);
-        if (element) {
-          logSuccess("Registration completed successfully!");
-          await this.takeScreenshot("booking-success");
-          return true;
-        }
-      }
-
-      // If we placed an order but can't verify, assume success
       if (orderPlaced) {
         logWarning(
-          "Order placed but could not verify confirmation - assuming success",
+          "Order placed but could not verify confirmation within hold window - assuming success",
         );
         await this.takeScreenshot("booking-unverified");
         return true;
       }
 
-      logWarning("Could not verify booking completion");
-      await this.takeScreenshot("booking-unverified");
-      return true; // Assume success if we got this far without errors
+      logError(
+        `Could not place order — hold window expired after ${Math.round((Date.now() - holdStartTime) / 1000)}s`,
+      );
+      await this.takeScreenshot("hold-expired-no-order");
+      return false;
     } catch (error) {
       logError("Registration failed", error as Error);
       await this.takeScreenshot("registration-error");
@@ -1134,11 +1394,83 @@ export class SurreyBookingAutomation {
         `   ⏳ Waiting at registration page... ${Math.floor(secRemaining / 60)}m ${secRemaining % 60}s until ${releaseHour}:${releaseMinute.toString().padStart(2, "0")} PST`,
       );
 
-      // Wait 5 seconds before checking again (or less if close to release)
-      const waitTime = Math.min(5000, msRemaining);
+      // Adaptive polling: 5s when >30s away, 1s when 5-30s, 100ms when <5s
+      let waitTime: number;
+      if (msRemaining > 30000) {
+        waitTime = 5000;
+      } else if (msRemaining > 5000) {
+        waitTime = 1000;
+      } else {
+        waitTime = 100;
+      }
       await new Promise((resolve) =>
-        setTimeout(resolve, Math.max(waitTime, 1000)),
+        setTimeout(resolve, Math.max(waitTime, 100)),
       );
+    }
+  }
+
+  /**
+   * Fallback: attempt to join the waitlist after a failed booking.
+   * Navigates back to the listing, finds the slot, and clicks the Waitlist button.
+   */
+  private async attemptWaitlistFallback(
+    params: BookingParams,
+  ): Promise<boolean> {
+    const log = getLogger();
+    log.info("═".repeat(60));
+    log.info(
+      "🔄 WAITLIST FALLBACK: Booking failed — attempting to join waitlist...",
+    );
+    log.info("═".repeat(60));
+    this.trace("action", { action: "waitlist_fallback_start" });
+
+    try {
+      // Navigate back to the booking listings page
+      await this.safeGoto(BOOKING_URL, "Waitlist fallback: return to listings");
+      await this.page!.waitForTimeout(2000);
+
+      // Re-apply filters
+      const filterSuccess = await this.navigateAndFilter(params);
+      if (!filterSuccess) {
+        log.warn("Waitlist fallback: could not re-apply filters");
+        return false;
+      }
+
+      // Find the slot — but this time force waitlist mode
+      const waitlistParams = { ...params, preferWaitlist: true };
+      const slotInfo = await this.findAndSelectSlot(waitlistParams);
+
+      if (slotInfo.status === "waitlist") {
+        log.info(
+          "Waitlist button clicked — completing waitlist registration...",
+        );
+        const success = await this.completeRegistration();
+        if (success) {
+          logSuccess("Successfully joined the WAITLIST!");
+          this.trace("action", { action: "waitlist_fallback_success" });
+          return true;
+        }
+      } else if (slotInfo.status === "available") {
+        // Slot became available again — complete the booking!
+        log.info("Slot is available again — completing booking...");
+        const success = await this.completeRegistration();
+        if (success) {
+          logSuccess("Booking completed on waitlist fallback attempt!");
+          this.trace("action", { action: "waitlist_fallback_booked" });
+          return true;
+        }
+      } else {
+        log.warn(
+          `Waitlist fallback: slot status is "${slotInfo.status}" — cannot join waitlist`,
+        );
+      }
+
+      await this.takeScreenshot("waitlist-fallback-failed");
+      return false;
+    } catch (error) {
+      logError("Waitlist fallback failed", error as Error);
+      await this.takeScreenshot("waitlist-fallback-error");
+      return false;
     }
   }
 
@@ -1186,8 +1518,18 @@ export class SurreyBookingAutomation {
             ? "Successfully added to waitlist"
             : "Booking completed successfully";
       } else {
-        result.message = "Registration failed";
-        result.error = "Could not complete the registration process";
+        // Registration failed — try joining the waitlist as fallback
+        const waitlistSuccess = await this.attemptWaitlistFallback(params);
+        if (waitlistSuccess) {
+          result.success = true;
+          result.waitlisted = true;
+          result.message = "Booking failed but successfully joined waitlist";
+        } else {
+          result.message =
+            "Registration failed and waitlist fallback also failed";
+          result.error =
+            "Could not complete the registration or join the waitlist";
+        }
       }
 
       return result;
@@ -1195,6 +1537,22 @@ export class SurreyBookingAutomation {
       result.message = "Booking failed";
       result.error = (error as Error).message;
       logError("Booking failed", error as Error);
+
+      // Even on crash, try waitlist as last resort
+      try {
+        if (this.page) {
+          const waitlistSuccess = await this.attemptWaitlistFallback(params);
+          if (waitlistSuccess) {
+            result.success = true;
+            result.waitlisted = true;
+            result.message = "Booking crashed but successfully joined waitlist";
+            return result;
+          }
+        }
+      } catch {
+        logError("Waitlist fallback also crashed");
+      }
+
       return result;
     } finally {
       await this.cleanup();
@@ -1247,8 +1605,21 @@ export class SurreyBookingAutomation {
       }
 
       if (slotInfo.status === "full" && !params.preferWaitlist) {
-        result.message = "Slot is full";
-        result.error = "The requested slot is full and waitlist is not enabled";
+        // Slot is full — automatically try waitlist as fallback
+        logWarning("Slot is full — automatically attempting waitlist...");
+        const waitlistParams = { ...params, preferWaitlist: true };
+        const wlSlotInfo = await this.findAndSelectSlot(waitlistParams);
+        if (wlSlotInfo.status === "waitlist") {
+          const success = await this.completeRegistration();
+          if (success) {
+            result.success = true;
+            result.waitlisted = true;
+            result.message = "Slot was full — successfully joined waitlist";
+            return result;
+          }
+        }
+        result.message = "Slot is full and could not join waitlist";
+        result.error = "The requested slot is full";
         return result;
       }
 
@@ -1263,8 +1634,18 @@ export class SurreyBookingAutomation {
             ? "Successfully added to waitlist"
             : "Booking completed successfully";
       } else {
-        result.message = "Registration failed";
-        result.error = "Could not complete the registration process";
+        // Registration failed — try joining the waitlist as fallback
+        const waitlistSuccess = await this.attemptWaitlistFallback(params);
+        if (waitlistSuccess) {
+          result.success = true;
+          result.waitlisted = true;
+          result.message = "Booking failed but successfully joined waitlist";
+        } else {
+          result.message =
+            "Registration failed and waitlist fallback also failed";
+          result.error =
+            "Could not complete the registration or join the waitlist";
+        }
       }
 
       return result;
@@ -1272,6 +1653,22 @@ export class SurreyBookingAutomation {
       result.message = "Booking failed";
       result.error = (error as Error).message;
       logError("Booking failed", error as Error);
+
+      // Even on crash, try waitlist as last resort
+      try {
+        if (this.page) {
+          const waitlistSuccess = await this.attemptWaitlistFallback(params);
+          if (waitlistSuccess) {
+            result.success = true;
+            result.waitlisted = true;
+            result.message = "Booking crashed but successfully joined waitlist";
+            return result;
+          }
+        }
+      } catch {
+        logError("Waitlist fallback also crashed");
+      }
+
       return result;
     } finally {
       await this.cleanup();
@@ -1298,6 +1695,7 @@ export class SurreyBookingAutomation {
       });
 
       getLogger().info(`Screenshot saved: ${filename}`);
+      this.trace("screenshot", { name, filename });
     } catch (error) {
       getLogger().warn(
         `Failed to take screenshot: ${(error as Error).message}`,
@@ -1306,10 +1704,78 @@ export class SurreyBookingAutomation {
   }
 
   /**
+   * Save trace log to JSON file
+   */
+  private saveTrace(): void {
+    if (!this.envConfig.traceEnabled || this.traceLog.length === 0) return;
+    const log = getLogger();
+    try {
+      const traceDir = this.envConfig.logDir || "./logs";
+      if (!fs.existsSync(traceDir)) {
+        fs.mkdirSync(traceDir, { recursive: true });
+      }
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const filename = `trace-${timestamp}.json`;
+      const filePath = path.join(traceDir, filename);
+
+      // Build summary stats
+      const requests = this.traceLog.filter((e) => e.type === "request");
+      const responses = this.traceLog.filter((e) => e.type === "response");
+      const errors = this.traceLog.filter((e) => e.type === "error");
+      const actions = this.traceLog.filter((e) => e.type === "action");
+      const navigations = this.traceLog.filter((e) => e.type === "navigation");
+
+      const summary = {
+        totalEntries: this.traceLog.length,
+        totalRequests: requests.length,
+        totalResponses: responses.length,
+        failedRequests: errors.length,
+        actions: actions.length,
+        navigations: navigations.length,
+        durationMs:
+          this.traceLog.length > 0
+            ? this.traceLog[this.traceLog.length - 1].elapsed
+            : 0,
+        responseStatusCounts: responses.reduce(
+          (acc, r) => {
+            const status = String(r.detail.status);
+            acc[status] = (acc[status] || 0) + 1;
+            return acc;
+          },
+          {} as Record<string, number>,
+        ),
+        uniqueDomains: [
+          ...new Set(
+            requests.map((r) => {
+              try {
+                return new URL(String(r.detail.url)).hostname;
+              } catch {
+                return "unknown";
+              }
+            }),
+          ),
+        ],
+      };
+
+      const traceOutput = { summary, entries: this.traceLog };
+      fs.writeFileSync(filePath, JSON.stringify(traceOutput, null, 2));
+      log.info(
+        `Trace saved: ${filename} (${this.traceLog.length} entries, ${summary.durationMs}ms)`,
+      );
+    } catch (error) {
+      log.warn(`Failed to save trace: ${(error as Error).message}`);
+    }
+  }
+
+  /**
    * Cleanup browser resources
    */
   async cleanup(): Promise<void> {
     const log = getLogger();
+
+    // Save trace before closing browser
+    this.saveTrace();
+
     log.info("Cleaning up browser resources...");
 
     if (this.page) {

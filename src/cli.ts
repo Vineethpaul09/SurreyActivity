@@ -47,12 +47,18 @@ program
   .requiredOption("-l, --location <location>", "Recreation centre name")
   .option("-w, --waitlist", "Join waitlist if slot is full", false)
   .option("--headless", "Run browser in headless mode")
+  .option("--trace", "Enable full network + action trace capture", false)
   .action(async (options) => {
     const envConfig = loadEnvConfig();
 
     // Override headless from CLI if provided
     if (options.headless !== undefined) {
       envConfig.headless = options.headless;
+    }
+
+    // Enable trace mode from CLI
+    if (options.trace) {
+      envConfig.traceEnabled = true;
     }
 
     // Initialize logger

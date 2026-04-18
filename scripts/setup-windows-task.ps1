@@ -38,9 +38,9 @@ param(
 $TaskName        = "SurreyActivityBookingScheduler"
 $TaskDescription = "Runs the Surrey Activity Booking Scheduler (node-cron) to automatically book badminton slots."
 $ProjectDir      = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
-$BatchFile       = Join-Path $ProjectDir "scripts\run-scheduler.bat"
-$HiddenLauncher  = Join-Path $ProjectDir "scripts\run-scheduler-hidden.vbs"
+$LauncherScript  = Join-Path $ProjectDir "scripts\run-scheduler.ps1"
 $LogDir          = Join-Path $ProjectDir "logs"
+$DistScheduler   = Join-Path $ProjectDir "dist\scheduler.js"
 
 # ─── Helpers ─────────────────────────────────────────────────────────────
 function Write-Header {
@@ -51,20 +51,67 @@ function Write-Header {
     Write-Host ("=" * 60) -ForegroundColor Cyan
 }
 
+function Get-LatestSourceItem {
+    $sourceItems = @()
+    $srcDir = Join-Path $ProjectDir "src"
+
+    if (Test-Path $srcDir) {
+        $sourceItems += Get-ChildItem -Path $srcDir -Filter "*.ts" -File -Recurse -ErrorAction SilentlyContinue
+    }
+
+    foreach ($relativePath in @("package.json", "tsconfig.json")) {
+        $fullPath = Join-Path $ProjectDir $relativePath
+        if (Test-Path $fullPath) {
+            $sourceItems += Get-Item $fullPath
+        }
+    }
+
+    return $sourceItems | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
+}
+
+function Test-BuildRequired {
+    if (-not (Test-Path $DistScheduler)) {
+        return $true
+    }
+
+    $distWriteTime = (Get-Item $DistScheduler).LastWriteTimeUtc
+    $latestSource = Get-LatestSourceItem
+
+    return $latestSource -and $latestSource.LastWriteTimeUtc -gt $distWriteTime
+}
+
 function Ensure-Built {
-    $distScheduler = Join-Path $ProjectDir "dist\scheduler.js"
-    if (-not (Test-Path $distScheduler)) {
-        Write-Host "  dist/scheduler.js not found. Building..." -ForegroundColor Yellow
+    if (Test-BuildRequired) {
+        if (Test-Path $DistScheduler) {
+            Write-Host "  Source files changed after the last build. Rebuilding..." -ForegroundColor Yellow
+        } else {
+            Write-Host "  dist/scheduler.js not found. Building..." -ForegroundColor Yellow
+        }
         Push-Location $ProjectDir
-        npm run build
-        Pop-Location
-        if (-not (Test-Path $distScheduler)) {
+        try {
+            npm run build
+            $exitCode = $LASTEXITCODE
+        } finally {
+            Pop-Location
+        }
+        if ($exitCode -ne 0 -or -not (Test-Path $DistScheduler)) {
             Write-Host "  [ERROR] Build failed!" -ForegroundColor Red
             return $false
         }
         Write-Host "  Build complete." -ForegroundColor Green
     }
     return $true
+}
+
+function Get-SchedulerNodeProcesses {
+    $escapedSchedulerPath = [regex]::Escape($DistScheduler)
+
+    Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue |
+        Where-Object {
+            $_.CommandLine -and
+            $_.CommandLine -match $escapedSchedulerPath -and
+            $_.CommandLine -match '\sstart(\s|$)'
+        }
 }
 
 # ─── Actions ─────────────────────────────────────────────────────────────
@@ -76,45 +123,53 @@ switch ($Action) {
         # Build first
         if (-not (Ensure-Built)) { exit 1 }
 
-        # Remove existing task if present
-        $existing = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
-        if ($existing) {
-            Write-Host "  Removing existing task..." -ForegroundColor Yellow
-            Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
+        try {
+            # Remove existing task if present
+            $existing = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+            if ($existing) {
+                Write-Host "  Removing existing task..." -ForegroundColor Yellow
+                Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction Stop
+            }
+
+            # Create the task action - run the PowerShell launcher directly so the
+            # scheduled task stays attached to the real scheduler process.
+            $taskAction = New-ScheduledTaskAction `
+                -Execute "powershell.exe" `
+                -Argument "-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$LauncherScript`"" `
+                -WorkingDirectory $ProjectDir
+
+            # Triggers: At user logon AND at system startup (covers restart/power-on)
+            $triggerLogon = New-ScheduledTaskTrigger -AtLogOn
+            $triggerStartup = New-ScheduledTaskTrigger -AtStartup
+
+            # Settings - ensure it works on battery (laptops) and survives sleep/hibernate
+            $settings = New-ScheduledTaskSettingsSet `
+                -AllowStartIfOnBatteries `
+                -DontStopIfGoingOnBatteries `
+                -StartWhenAvailable `
+                -RestartCount 3 `
+                -RestartInterval (New-TimeSpan -Minutes 1) `
+                -ExecutionTimeLimit (New-TimeSpan -Days 365) `
+                -MultipleInstances IgnoreNew
+
+            # Hide the console window
+            $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited
+
+            # Register the task with BOTH triggers
+            Register-ScheduledTask `
+                -TaskName $TaskName `
+                -Description $TaskDescription `
+                -Action $taskAction `
+                -Trigger @($triggerLogon, $triggerStartup) `
+                -Settings $settings `
+                -Principal $principal `
+                -Force `
+                -ErrorAction Stop | Out-Null
+        } catch {
+            Write-Host "  [ERROR] Unable to update the scheduled task: $($_.Exception.Message)" -ForegroundColor Red
+            Write-Host "  Run this command from an elevated PowerShell session to update the task registration." -ForegroundColor Yellow
+            exit 1
         }
-
-        # Create the task action - run via VBS wrapper so there's NO visible CMD window
-        $taskAction = New-ScheduledTaskAction `
-            -Execute "wscript.exe" `
-            -Argument "`"$HiddenLauncher`"" `
-            -WorkingDirectory $ProjectDir
-
-        # Triggers: At user logon AND at system startup (covers restart/power-on)
-        $triggerLogon = New-ScheduledTaskTrigger -AtLogOn
-        $triggerStartup = New-ScheduledTaskTrigger -AtStartup
-
-        # Settings - ensure it works on battery (laptops) and survives sleep/hibernate
-        $settings = New-ScheduledTaskSettingsSet `
-            -AllowStartIfOnBatteries `
-            -DontStopIfGoingOnBatteries `
-            -StartWhenAvailable `
-            -RestartCount 3 `
-            -RestartInterval (New-TimeSpan -Minutes 1) `
-            -ExecutionTimeLimit (New-TimeSpan -Days 365) `
-            -MultipleInstances IgnoreNew
-
-        # Hide the console window
-        $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited
-
-        # Register the task with BOTH triggers
-        Register-ScheduledTask `
-            -TaskName $TaskName `
-            -Description $TaskDescription `
-            -Action $taskAction `
-            -Trigger @($triggerLogon, $triggerStartup) `
-            -Settings $settings `
-            -Principal $principal `
-            -Force | Out-Null
 
         # Verify
         $task = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
@@ -124,7 +179,7 @@ switch ($Action) {
             Write-Host ""
             Write-Host "  The scheduler will:" -ForegroundColor White
             Write-Host "    - Start automatically on login AND on system startup/restart" -ForegroundColor Gray
-            Write-Host "    - Run in headless mode (no browser window, no CMD window)" -ForegroundColor Gray
+            Write-Host "    - Keep Task Scheduler attached to the real scheduler process" -ForegroundColor Gray
             Write-Host "    - Keep running on battery power (laptop-safe)" -ForegroundColor Gray
             Write-Host "    - Auto-restart up to 3 times if it crashes" -ForegroundColor Gray
             Write-Host "    - Log output to: $LogDir" -ForegroundColor Gray
@@ -166,13 +221,24 @@ switch ($Action) {
             exit 1
         }
 
-        if ($existing.State -eq "Running") {
+        $nodeProcs = Get-SchedulerNodeProcesses
+        if ($nodeProcs) {
+            Write-Host "  Scheduler node process is already running (PID: $($nodeProcs.ProcessId -join ', '))." -ForegroundColor Yellow
+            if ($existing.State -ne "Running") {
+                Write-Host "  Task state is '$($existing.State)' because it was launched by the older detached wrapper." -ForegroundColor DarkYellow
+            }
+        } elseif ($existing.State -eq "Running") {
             Write-Host "  Scheduler is already running." -ForegroundColor Yellow
         } else {
             Start-ScheduledTask -TaskName $TaskName
             Start-Sleep -Seconds 2
             $task = Get-ScheduledTask -TaskName $TaskName
-            Write-Host "  Scheduler started. State: $($task.State)" -ForegroundColor Green
+            $nodeProcs = Get-SchedulerNodeProcesses
+            if ($nodeProcs) {
+                Write-Host "  Scheduler started. State: $($task.State). PID: $($nodeProcs.ProcessId -join ', ')" -ForegroundColor Green
+            } else {
+                Write-Host "  Scheduler start requested. State: $($task.State)" -ForegroundColor Yellow
+            }
         }
     }
 
@@ -185,10 +251,21 @@ switch ($Action) {
             exit 0
         }
 
-        if ($existing.State -eq "Running") {
+        $taskWasRunning = $existing.State -eq "Running"
+        $nodeProcs = Get-SchedulerNodeProcesses
+
+        if ($taskWasRunning) {
             Stop-ScheduledTask -TaskName $TaskName
             Start-Sleep -Seconds 2
-            Write-Host "  Scheduler stopped." -ForegroundColor Green
+        }
+
+        if ($nodeProcs) {
+            $nodeProcs | ForEach-Object {
+                Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
+            }
+            Write-Host "  Scheduler stopped. Terminated PID: $($nodeProcs.ProcessId -join ', ')" -ForegroundColor Green
+        } elseif ($taskWasRunning) {
+            Write-Host "  Scheduler task stopped." -ForegroundColor Green
         } else {
             Write-Host "  Scheduler is not running (state: $($existing.State))." -ForegroundColor Yellow
         }
@@ -214,14 +291,20 @@ switch ($Action) {
             Write-Host "  Next Run:        $($taskInfo.NextRunTime)" -ForegroundColor Gray
         }
         Write-Host "  Project Dir:     $ProjectDir" -ForegroundColor Gray
+        Write-Host "  Launcher:        $LauncherScript" -ForegroundColor Gray
         Write-Host "  Log Dir:         $LogDir" -ForegroundColor Gray
 
-        # Check if node process is actually running
-        $nodeProcs = Get-Process -Name "node" -ErrorAction SilentlyContinue | Where-Object {
-            try { $_.MainModule.FileName -and $_.CommandLine -match "scheduler" } catch { $false }
-        }
+        $nodeProcs = Get-SchedulerNodeProcesses
         if ($nodeProcs) {
-            Write-Host "  Node Process:    Running (PID: $($nodeProcs.Id -join ', '))" -ForegroundColor Green
+            Write-Host "  Node Process:    Running (PID: $($nodeProcs.ProcessId -join ', '))" -ForegroundColor Green
+            if ($nodeProcs.Count -gt 1) {
+                Write-Host "  Warning:         Multiple scheduler processes are running." -ForegroundColor Yellow
+            }
+            if ($existing.State -ne "Running") {
+                Write-Host "  Note:            Task state is '$($existing.State)' because an older detached scheduler process is still active." -ForegroundColor DarkYellow
+            }
+        } elseif ($existing.State -eq "Running") {
+            Write-Host "  Node Process:    Not detected yet (task wrapper is active)." -ForegroundColor Yellow
         }
 
         # Show latest log

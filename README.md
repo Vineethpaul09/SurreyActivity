@@ -168,6 +168,20 @@ npm run book:all -- --headless
 # Or set HEADLESS=false in .env
 ```
 
+### Windows Task Scheduler
+
+Use the built-in scheduler commands for Windows:
+
+```bash
+npm run scheduler:install
+npm run scheduler:start
+npm run scheduler:status
+```
+
+The Windows launcher now keeps Task Scheduler attached to the real Node.js
+process and rebuilds automatically when files in `src/`, `package.json`, or
+`tsconfig.json` are newer than `dist/scheduler.js`.
+
 ## ⚠️ Disclaimer
 
 This tool is for personal use. Please use responsibly and in accordance with City of Surrey's terms of service.

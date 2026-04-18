@@ -10,5 +10,5 @@ Set WshShell = CreateObject("WScript.Shell")
 scriptDir = CreateObject("Scripting.FileSystemObject").GetParentFolderName(WScript.ScriptFullName)
 batchFile = scriptDir & "\run-scheduler.bat"
 
-' Run hidden (0 = hidden window), non-blocking (False)
-WshShell.Run "cmd /c """ & batchFile & """", 0, False
+' Run hidden (0 = hidden window) and wait so Task Scheduler tracks the real process
+WshShell.Run "cmd /c """ & batchFile & """", 0, True

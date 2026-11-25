@@ -15,8 +15,8 @@ COPY . .
 # Build TypeScript (if needed)
 RUN npm run build || true
 
-# Set timezone to Pacific
-ENV TZ=America/Vancouver
+# BC permanent Pacific Time (UTC-7); Etc/GMT+7 = UTC-7
+ENV TZ=Etc/GMT+7
 
 # Default command - start the scheduler
 CMD ["npx", "ts-node", "src/scheduler.ts", "start"]

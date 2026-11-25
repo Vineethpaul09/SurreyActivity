@@ -11,7 +11,7 @@ WorkingDirectory=/home/pi/SurreyActivity
 
 # Environment variables
 Environment=NODE_ENV=production
-Environment=TZ=America/Vancouver
+Environment=TZ=Etc/GMT+7
 Environment=PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
 Environment=NODE_OPTIONS=--max-old-space-size=256
 Environment=HEADLESS=false

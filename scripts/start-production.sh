@@ -13,8 +13,8 @@ cd "$APP_DIR"
 # Use system Chromium on ARM (Raspberry Pi)
 export PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH="${PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH:-/usr/bin/chromium-browser}"
 
-# Set timezone to Pacific
-export TZ=America/Vancouver
+# BC permanent Pacific Time (UTC-7); Etc/GMT+7 = UTC-7
+export TZ=Etc/GMT+7
 
 # Set Node.js memory limit
 # Pi 3 (1GB RAM): use 256m | Pi 4 (2GB): use 512m | Pi 4 (4GB+): use 1024m

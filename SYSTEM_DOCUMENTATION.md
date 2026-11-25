@@ -41,7 +41,7 @@ This system automates booking drop-in sports activities (Badminton, Pickleball, 
 │                        SCHEDULER (scheduler.ts)                  │
 │  - Runs 24/7 on Railway                                         │
 │  - node-cron manages scheduled jobs                              │
-│  - All times in PST (America/Vancouver)                          │
+│  - All times in PT, UTC-7 (Etc/GMT+7)                            │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               │ Triggers 2 min before release
@@ -436,7 +436,7 @@ npm run book:all -- --headless  # Book in headless mode
    ACTION_TIMEOUT=15000
    LOG_LEVEL=info
    LOG_TO_FILE=false
-   TZ=America/Vancouver
+   TZ=Etc/GMT+7
    ```
 
 4. **Deploy** - Railway auto-builds and starts
@@ -452,7 +452,7 @@ COPY package*.json ./
 RUN npm ci
 COPY . .
 RUN npm run build || true
-ENV TZ=America/Vancouver
+ENV TZ=Etc/GMT+7
 CMD ["npx", "ts-node", "src/scheduler.ts", "start"]
 ```
 
@@ -484,7 +484,7 @@ restartPolicyType = "always"
 | Login failed       | Wrong credentials             | Check SURREY_EMAIL and SURREY_PASSWORD                       |
 | Slot not found     | Sold out or wrong time format | Verify time matches exactly (e.g., "8:15 am" not "08:15 AM") |
 | Browser crash      | Missing dependencies          | Use Playwright Docker image                                  |
-| Wrong timezone     | TZ not set                    | Set TZ=America/Vancouver                                     |
+| Wrong timezone     | TZ not set                    | Set TZ=Etc/GMT+7                                             |
 | Booking too slow   | SLOW_MO too high              | Reduce SLOW_MO to 50 or 0                                    |
 | Healthcheck failed | Railway expects HTTP server   | Remove healthcheckPath from railway.toml                     |
 
@@ -525,7 +525,7 @@ npx ts-node src/scheduler.ts run <schedule-id>
 2. **Don't use SLOW_MO > 100 for production** - booking will be too slow
 3. **Don't commit .env file** - security risk
 4. **Don't run multiple instances** - may cause duplicate bookings
-5. **Don't ignore timezone** - always use America/Vancouver (PST)
+5. **Don't ignore timezone** - always use Etc/GMT+7 (BC permanent UTC-7; old tzdata still applies PST to America/Vancouver)
 
 ### 📝 Date/Time Formats
 
@@ -547,7 +547,7 @@ npx ts-node src/scheduler.ts run <schedule-id>
 │ List Schedules:   npx ts-node src/scheduler.ts list         │
 │ Run Now:          npx ts-node src/scheduler.ts run <id>     │
 ├─────────────────────────────────────────────────────────────┤
-│ Timezone:         America/Vancouver (PST/PDT)               │
+│ Timezone:         Etc/GMT+7 (BC Pacific Time, UTC-7)        │
 │ Cron Trigger:     2 minutes BEFORE release time             │
 │ Date Format:      DD-MMM-YYYY (e.g., 31-Jan-2026)          │
 │ Time Format:      HH:MM am/pm (e.g., 8:15 am)              │

@@ -26,29 +26,29 @@ on:
         type: boolean
         default: false
 
-  # Scheduled runs - all times in UTC (PST + 8 hours)
-  # Badminton bookings release at 9:00 AM PST on specific days
+  # Scheduled runs - all times in UTC (BC Pacific Time is permanent UTC-7, so PT + 7 hours)
+  # Badminton bookings release at 9:00 AM PT on specific days
   schedule:
-    # Saturday Guildford 7:15am - releases Wednesday 9AM PST = 17:00 UTC
-    - cron: "0 17 * * 3" # Wednesday 5PM UTC = 9AM PST
+    # Saturday Guildford 7:15am - releases Wednesday 9AM PT = 16:00 UTC
+    - cron: "0 16 * * 3" # Wednesday 4PM UTC = 9AM PT
 
-    # Saturday Bear Creek 7:15am - releases Wednesday 9AM PST
+    # Saturday Bear Creek 7:15am - releases Wednesday 9AM PT
     # (same cron, handled by job matrix)
 
-    # Sunday Guildford 6:45am - releases Thursday 9AM PST = 17:00 UTC
-    - cron: "0 17 * * 4" # Thursday 5PM UTC = 9AM PST
+    # Sunday Guildford 6:45am - releases Thursday 9AM PT = 16:00 UTC
+    - cron: "0 16 * * 4" # Thursday 4PM UTC = 9AM PT
 
-    # Monday Guildford 7:15am - releases Friday 9AM PST
-    - cron: "0 17 * * 5" # Friday 5PM UTC = 9AM PST
+    # Monday Guildford 7:15am - releases Friday 9AM PT
+    - cron: "0 16 * * 5" # Friday 4PM UTC = 9AM PT
 
-    # Tuesday Guildford 6:45am - releases Saturday 9AM PST
-    - cron: "0 17 * * 6" # Saturday 5PM UTC = 9AM PST
+    # Tuesday Guildford 6:45am - releases Saturday 9AM PT
+    - cron: "0 16 * * 6" # Saturday 4PM UTC = 9AM PT
 
-    # Wednesday Cloverdale Pickleball 1:15pm - releases Wednesday 9AM PST
+    # Wednesday Cloverdale Pickleball 1:15pm - releases Wednesday 9AM PT
     # (same as first cron)
 
-    # Friday Guildford 7:15am - releases Tuesday 9AM PST
-    - cron: "0 17 * * 2" # Tuesday 5PM UTC = 9AM PST
+    # Friday Guildford 7:15am - releases Tuesday 9AM PT
+    - cron: "0 16 * * 2" # Tuesday 4PM UTC = 9AM PT
 
 env:
   SURREY_EMAIL: ${{ secrets.SURREY_EMAIL }}
@@ -131,8 +131,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Wednesday 9AM PST releases (Saturday bookings + Pickleball)
-          - cron_match: "0 17 * * 3"
+          # Wednesday 9AM PT releases (Saturday bookings + Pickleball)
+          - cron_match: "0 16 * * 3"
             bookings: |
               [
                 {"activity": "Drop In Badminton - 13+", "time": "07:15 am", "location": "Guildford", "days_ahead": 3},
@@ -140,29 +140,29 @@ jobs:
                 {"activity": "Drop In Pickleball - Adult", "time": "01:15 pm", "location": "Cloverdale", "days_ahead": 3}
               ]
 
-          # Thursday 9AM PST releases (Sunday bookings)
-          - cron_match: "0 17 * * 4"
+          # Thursday 9AM PT releases (Sunday bookings)
+          - cron_match: "0 16 * * 4"
             bookings: |
               [
                 {"activity": "Drop In Badminton - 13+", "time": "06:45 am", "location": "Guildford", "days_ahead": 3}
               ]
 
-          # Friday 9AM PST releases (Monday bookings)
-          - cron_match: "0 17 * * 5"
+          # Friday 9AM PT releases (Monday bookings)
+          - cron_match: "0 16 * * 5"
             bookings: |
               [
                 {"activity": "Drop In Badminton - 13+", "time": "07:15 am", "location": "Guildford", "days_ahead": 3}
               ]
 
-          # Saturday 9AM PST releases (Tuesday bookings)
-          - cron_match: "0 17 * * 6"
+          # Saturday 9AM PT releases (Tuesday bookings)
+          - cron_match: "0 16 * * 6"
             bookings: |
               [
                 {"activity": "Drop In Badminton - 13+", "time": "06:45 am", "location": "Guildford", "days_ahead": 3}
               ]
 
-          # Tuesday 9AM PST releases (Friday bookings)
-          - cron_match: "0 17 * * 2"
+          # Tuesday 9AM PT releases (Friday bookings)
+          - cron_match: "0 16 * * 2"
             bookings: |
               [
                 {"activity": "Drop In Badminton - 13+", "time": "07:15 am", "location": "Guildford", "days_ahead": 3}
@@ -175,10 +175,10 @@ jobs:
           # Get current day of week (0=Sunday, 1=Monday, ..., 6=Saturday)
           CURRENT_DAY=$(date +%w)
           MATRIX_CRON="${{ matrix.cron_match }}"
-          
+
           echo "Current day of week: $CURRENT_DAY"
           echo "Matrix cron: $MATRIX_CRON"
-          
+
           # Map day numbers to cron day numbers
           case $CURRENT_DAY in
             0) CRON_DAY="0" ;; # Sunday
@@ -189,12 +189,12 @@ jobs:
             5) CRON_DAY="5" ;; # Friday
             6) CRON_DAY="6" ;; # Saturday
           esac
-          
+
           # Extract day from cron expression (last field)
           CRON_SCHEDULED_DAY=$(echo "$MATRIX_CRON" | awk '{print $NF}')
-          
+
           echo "Cron scheduled day: $CRON_SCHEDULED_DAY"
-          
+
           if [ "$CRON_SCHEDULED_DAY" = "$CRON_DAY" ]; then
             echo "should_run=true" >> $GITHUB_OUTPUT
             echo "✅ This job matches today (day $CURRENT_DAY)"
@@ -202,7 +202,6 @@ jobs:
             echo "should_run=false" >> $GITHUB_OUTPUT
             echo "⏭️ Skipping - today is day $CURRENT_DAY, job is for day $CRON_SCHEDULED_DAY"
           fi
-          
 
       - name: Checkout code
         if: steps.check.outputs.should_run == 'true'

@@ -114,9 +114,9 @@ Edit `.github/workflows/booking-scheduler.yml`:
 
 Cron format: `minute hour day month weekday` (UTC time)
 
-PST to UTC: Add 8 hours (or 7 during DST)
+PT to UTC: Add 7 hours (BC is on permanent UTC-7 since Nov 2026)
 
-- 9:00 AM PST = 17:00 UTC (5 PM)
+- 9:00 AM PT = 16:00 UTC (4 PM)
 
 ### Adding a New Booking
 

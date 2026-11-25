@@ -8,16 +8,22 @@
  * Priority: Fraser Heights > Cloverdale > Guildford
  *
  * Schedule:
+ * Registration opens 3 days before each slot, at the slot's start time.
+ *
  * 🥇 Fraser Heights (Priority 1):
  *   - Sunday 6:15 PM → Book Wednesday 6:15 PM @ Fraser Heights
  *   - Wednesday 10:00 AM → Book Saturday 10:00 AM @ Fraser Heights
  *   - Thursday 10:00 AM → Book Sunday 10:00 AM @ Fraser Heights
+ *   - Friday 10:00 AM → Book Monday 10:00 AM @ Fraser Heights
+ *   - Friday 6:15 PM → Book Monday 6:15 PM @ Fraser Heights
  *
  * 🥈 Cloverdale (Priority 2):
  *   - Friday 6:30 PM → Book Monday 6:30 PM @ Cloverdale
- *   - Wednesday 7:45 PM → Book Wednesday 7:45 PM @ Cloverdale (same day)
- *   - Tuesday 6:30 PM → Book Friday 6:30 PM @ Cloverdale
- *   - Wednesday 9:15 AM → Book Wednesday 9:15 AM @ Cloverdale (same day)
+ *   - Sunday 9:00 AM → Book Wednesday 9:00 AM @ Cloverdale
+ *   - Sunday 7:30 PM → Book Wednesday 7:30 PM @ Cloverdale
+ *   - Wednesday 9:00 AM → Book Saturday 9:00 AM @ Cloverdale
+ *   - Saturday 8:15 PM → Book Tuesday 8:15 PM @ Cloverdale
+ *   - Monday 8:15 PM → Book Thursday 8:15 PM @ Cloverdale
  *
  * 🥉 Guildford (Priority 3):
  *   - Saturday 7:00 PM → Book Tuesday 7:00 PM @ Guildford
@@ -71,8 +77,9 @@ let bookingInProgress = false;
 // Real wall-clock time of last interval check (for sleep gap detection)
 let lastCheckRealTime = Date.now();
 
-// Pacific Time Zone (Vancouver/Surrey)
-const TIMEZONE = "America/Vancouver";
+// BC is on permanent UTC-7 since Nov 2026; older tzdata still shifts America/Vancouver to UTC-8.
+// Note: Etc/GMT+7 means UTC-7 (POSIX sign is inverted).
+const TIMEZONE = "Etc/GMT+7";
 
 /**
  * Get current time in PST/PDT (Pacific Time)
@@ -176,6 +183,30 @@ const SCHEDULES: ScheduleConfig[] = [
     time: "10:00 am",
     description: "Thursday 10:00 AM → Book Sunday 10:00 AM @ Fraser Heights",
   },
+  {
+    id: "friday-monday-fraser-badminton-morning",
+    activity: ACTIVITY,
+    cronExpression: "58 9 * * 5", // Friday at 9:58 AM (2 min before 10:00 AM release)
+    cronDay: 5, // Friday
+    releaseHour: 10,
+    releaseMinute: 0,
+    targetDay: (d) => nextMonday(d),
+    location: LOCATIONS.FRASER_HEIGHTS,
+    time: "10:00 am",
+    description: "Friday 10:00 AM → Book Monday 10:00 AM @ Fraser Heights",
+  },
+  {
+    id: "friday-monday-fraser-badminton-evening",
+    activity: ACTIVITY,
+    cronExpression: "13 18 * * 5", // Friday at 6:13 PM (2 min before 6:15 PM release)
+    cronDay: 5, // Friday
+    releaseHour: 18,
+    releaseMinute: 15,
+    targetDay: (d) => nextMonday(d),
+    location: LOCATIONS.FRASER_HEIGHTS,
+    time: "6:15 pm",
+    description: "Friday 6:15 PM → Book Monday 6:15 PM @ Fraser Heights",
+  },
 
   // 🥈 PRIORITY 2: Cloverdale
   {
@@ -191,40 +222,64 @@ const SCHEDULES: ScheduleConfig[] = [
     description: "Friday 6:30 PM → Book Monday 6:30 PM @ Cloverdale",
   },
   {
-    id: "wednesday-wednesday-cloverdale-badminton-evening",
+    id: "sunday-wednesday-cloverdale-badminton-morning",
     activity: ACTIVITY,
-    cronExpression: "43 19 * * 3", // Wednesday at 7:43 PM (2 min before 7:45 PM release)
-    cronDay: 3, // Wednesday
-    releaseHour: 19,
-    releaseMinute: 45,
+    cronExpression: "58 8 * * 0", // Sunday at 8:58 AM (2 min before 9:00 AM release)
+    cronDay: 0, // Sunday
+    releaseHour: 9,
+    releaseMinute: 0,
     targetDay: (d) => nextWednesday(d),
     location: LOCATIONS.CLOVERDALE,
-    time: "7:45 pm",
-    description: "Wednesday 7:45 PM → Book Wednesday 7:45 PM @ Cloverdale",
+    time: "9:00 am",
+    description: "Sunday 9:00 AM → Book Wednesday 9:00 AM @ Cloverdale",
   },
   {
-    id: "tuesday-friday-cloverdale-badminton",
+    id: "sunday-wednesday-cloverdale-badminton-evening",
     activity: ACTIVITY,
-    cronExpression: "28 18 * * 2", // Tuesday at 6:28 PM (2 min before 6:30 PM release)
-    cronDay: 2, // Tuesday
-    releaseHour: 18,
+    cronExpression: "28 19 * * 0", // Sunday at 7:28 PM (2 min before 7:30 PM release)
+    cronDay: 0, // Sunday
+    releaseHour: 19,
     releaseMinute: 30,
-    targetDay: (d) => addDays(nextWednesday(d), 2), // Next Friday
+    targetDay: (d) => nextWednesday(d),
     location: LOCATIONS.CLOVERDALE,
-    time: "6:30 pm",
-    description: "Tuesday 6:30 PM → Book Friday 6:30 PM @ Cloverdale",
+    time: "7:30 pm",
+    description: "Sunday 7:30 PM → Book Wednesday 7:30 PM @ Cloverdale",
   },
   {
-    id: "wednesday-wednesday-cloverdale-badminton-morning",
+    id: "wednesday-saturday-cloverdale-badminton",
     activity: ACTIVITY,
-    cronExpression: "13 9 * * 3", // Wednesday at 9:13 AM (2 min before 9:15 AM release)
+    cronExpression: "58 8 * * 3", // Wednesday at 8:58 AM (2 min before 9:00 AM release)
     cronDay: 3, // Wednesday
     releaseHour: 9,
-    releaseMinute: 15,
-    targetDay: (d) => nextWednesday(d),
+    releaseMinute: 0,
+    targetDay: (d) => nextSaturday(d),
     location: LOCATIONS.CLOVERDALE,
-    time: "9:15 am",
-    description: "Wednesday 9:15 AM → Book Wednesday 9:15 AM @ Cloverdale",
+    time: "9:00 am",
+    description: "Wednesday 9:00 AM → Book Saturday 9:00 AM @ Cloverdale",
+  },
+  {
+    id: "saturday-tuesday-cloverdale-badminton",
+    activity: ACTIVITY,
+    cronExpression: "13 20 * * 6", // Saturday at 8:13 PM (2 min before 8:15 PM release)
+    cronDay: 6, // Saturday
+    releaseHour: 20,
+    releaseMinute: 15,
+    targetDay: (d) => nextTuesday(d),
+    location: LOCATIONS.CLOVERDALE,
+    time: "8:15 pm",
+    description: "Saturday 8:15 PM → Book Tuesday 8:15 PM @ Cloverdale",
+  },
+  {
+    id: "monday-thursday-cloverdale-badminton",
+    activity: ACTIVITY,
+    cronExpression: "13 20 * * 1", // Monday at 8:13 PM (2 min before 8:15 PM release)
+    cronDay: 1, // Monday
+    releaseHour: 20,
+    releaseMinute: 15,
+    targetDay: (d) => nextThursday(d),
+    location: LOCATIONS.CLOVERDALE,
+    time: "8:15 pm",
+    description: "Monday 8:15 PM → Book Thursday 8:15 PM @ Cloverdale",
   },
 
   // 🥉 PRIORITY 3: Guildford
@@ -303,16 +358,16 @@ const SCHEDULES: ScheduleConfig[] = [
     description: "Saturday 6:30 PM → Book Tuesday 6:30 PM @ Chuck Bailey",
   },
   {
-    id: "saturday-friday-chuck-bailey-badminton-morning",
+    id: "tuesday-friday-chuck-bailey-badminton-morning",
     activity: ACTIVITY,
-    cronExpression: "58 10 * * 6", // Saturday at 10:58 AM (2 min before 11:00 AM release)
-    cronDay: 6, // Saturday
+    cronExpression: "58 10 * * 2", // Tuesday at 10:58 AM (2 min before 11:00 AM release)
+    cronDay: 2, // Tuesday
     releaseHour: 11,
     releaseMinute: 0,
     targetDay: (d) => nextFriday(d),
     location: LOCATIONS.CHUCK_BAILEY,
     time: "11:00 am",
-    description: "Saturday 11:00 AM → Book Friday 11:00 AM @ Chuck Bailey",
+    description: "Tuesday 11:00 AM → Book Friday 11:00 AM @ Chuck Bailey",
   },
   {
     id: "monday-thursday-clayton-badminton",
@@ -545,7 +600,7 @@ function startScheduler(): void {
   log.info("═".repeat(60));
   log.info("🏸 SURREY ACTIVITY BOOKING SCHEDULER");
   log.info("═".repeat(60));
-  log.info(`Timezone: ${TIMEZONE} (PST/PDT)`);
+  log.info(`Timezone: ${TIMEZONE} (BC Pacific Time, UTC-7)`);
   log.info("");
   log.info("Scheduled Jobs:");
   log.info("─".repeat(60));
@@ -903,7 +958,7 @@ function listSchedules(): void {
   const testSchedules = SCHEDULES.filter((s) => s.testOnly);
 
   console.log("\n🏸 Surrey Activity Booking Schedule:");
-  console.log(`   Timezone: ${TIMEZONE} (PST/PDT)`);
+  console.log(`   Timezone: ${TIMEZONE} (BC Pacific Time, UTC-7)`);
   console.log("═".repeat(75));
   console.log("");
 

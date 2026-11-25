@@ -43,7 +43,7 @@ Windows PC (Build)              Raspberry Pi 3 (Run)
    - **Set username/password** (e.g., `pi` / `your-password`)
    - **Set Wi-Fi** (if not using Ethernet)
    - **Set hostname** (e.g., `surrey-booking`)
-   - **Set timezone** to `America/Vancouver`
+   - **Set timezone** to `Etc/GMT+7` (BC permanent UTC-7)
 4. Insert SD card and boot the Pi
 
 ### Step 2: SSH into the Pi
@@ -61,7 +61,7 @@ ssh pi@192.168.x.x
 sudo apt update && sudo apt upgrade -y
 
 # Set timezone
-sudo timedatectl set-timezone America/Vancouver
+sudo timedatectl set-timezone Etc/GMT+7
 
 # Install Node.js 20
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -

@@ -1356,7 +1356,8 @@ export class SurreyBookingAutomation {
     releaseMinute: number,
   ): Promise<void> {
     const log = getLogger();
-    const TIMEZONE = "America/Vancouver";
+    // Fixed UTC-7 (BC permanent Pacific Time); see scheduler.ts
+    const TIMEZONE = "Etc/GMT+7";
     const { toZonedTime } = require("date-fns-tz");
 
     const getNowPST = () => toZonedTime(new Date(), TIMEZONE);

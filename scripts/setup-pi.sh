@@ -15,8 +15,8 @@ APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$APP_DIR"
 
 # --- Step 1: Set timezone ---
-echo "[1/7] Setting timezone to America/Vancouver..."
-sudo timedatectl set-timezone America/Vancouver
+echo "[1/7] Setting timezone to Etc/GMT+7 (BC permanent UTC-7)..."
+sudo timedatectl set-timezone Etc/GMT+7
 
 # --- Step 2: Install system packages ---
 echo "[2/7] Installing system dependencies..."

@@ -26,7 +26,7 @@
    ACTION_TIMEOUT=15000
    LOG_LEVEL=info
    LOG_TO_FILE=false
-   TZ=America/Vancouver
+   TZ=Etc/GMT+7
    ```
 
 4. **Deploy** - Railway auto-detects Dockerfile and deploys!
@@ -35,7 +35,7 @@
 
 - **HEADLESS=false** is required (no display on Railway)
 - **Logs** are visible in Railway dashboard (LOG_TO_FILE=false recommended)
-- **Timezone** is set to Vancouver/Pacific in Dockerfile
+- **Timezone** is set to `Etc/GMT+7` (BC permanent UTC-7) in Dockerfile
 - **Scheduler runs 24/7** - will trigger at configured cron times
 
 ## View Logs
@@ -64,8 +64,8 @@ Railway offers:
 
 **Timezone wrong?**
 
-- Verify TZ=America/Vancouver is set
-- Check logs show PST times
+- Verify TZ=Etc/GMT+7 is set
+- Check logs show Pacific Time (UTC-7)
 
 **Missing bookings?**
 
